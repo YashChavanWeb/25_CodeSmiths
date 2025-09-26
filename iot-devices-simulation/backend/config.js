@@ -1,5 +1,5 @@
 module.exports = {
-  NUM_DEVICES: 10,
+  NUM_DEVICES: 100,
   MIN_INTERVAL: 500,
   MAX_INTERVAL: 2000,
   FACTORY_ID: "factory_1",

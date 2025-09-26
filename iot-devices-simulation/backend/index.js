@@ -6,6 +6,9 @@ const { createBot } = require("./bots/deviceBot");
 const app = express();
 app.use(express.json());
 
+
+// const SERVER_PORT = 3000cls
+
 let readings = []; // store all incoming readings
 
 // POST endpoint to receive data from bots
