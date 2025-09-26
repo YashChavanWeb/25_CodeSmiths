@@ -2,49 +2,51 @@ import { useEffect, useState } from "react";
 import DeviceGrid from "./components/DeviceGrid";
 
 export default function Dashboard() {
-  const [devices, setDevices] = useState([]);
+  const [devices, setDevices] = useState({}); // Use object for faster updates by device_id
 
   useEffect(() => {
-    const fetchDevices = async () => {
-      try {
-        const res = await fetch("http://localhost:5000/api/sensor-data");
-        const data = await res.json();
+    const eventSource = new EventSource("http://localhost:5000/api/bot-sensor-stream");
 
-        // Transform backend data to match DeviceCard format
-        const transformed = data.map((d) => ({
-          device_id: d.device_id,
-          device_type: d.system_type,
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        const newDevice = {
+          device_id: data.device_id,
+          device_type: data.system_type,
           status: "ok",
           metrics: {
-            current_amp: d.current,
-            temperature_c: d.temperature,
-            pressure_kpa: d.pressure,
+            current_amp: data.current,
+            temperature_c: data.temperature,
+            pressure_kpa: data.pressure,
           },
           location: "line-1",
-          timestamp: d.timestamp,
+          timestamp: data.timestamp,
+        };
+
+        // Update state with new device reading
+        setDevices(prevDevices => ({
+          ...prevDevices,
+          [newDevice.device_id]: newDevice,
         }));
 
-        // Keep only the latest entry per device
-        const latestByDevice = Object.values(
-          transformed.reduce((acc, dev) => {
-            acc[dev.device_id] = dev; // overwrite older entries with same id
-            return acc;
-          }, {})
-        );
-
-        setDevices(latestByDevice);
-
       } catch (err) {
-        console.error("❌ Error fetching devices:", err);
+        console.error("❌ Failed to parse SSE message:", err);
       }
     };
 
-    fetchDevices();
+    eventSource.onerror = (err) => {
+      console.error("❌ SSE connection error:", err);
+      eventSource.close();
+    };
 
-    // Poll every 3s for updates
-    const interval = setInterval(fetchDevices, 3000);
-    return () => clearInterval(interval);
+    return () => {
+      eventSource.close(); // Clean up on unmount
+    };
   }, []);
+
+  // Convert device object to array for DeviceGrid
+  const deviceList = Object.values(devices);
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
@@ -52,12 +54,12 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6">
         <h1 className="text-3xl font-bold text-gray-800">IoT Device Dashboard</h1>
         <p className="mt-2 sm:mt-0 text-gray-500">
-          Monitoring {devices.length} devices in real-time
+          Monitoring {deviceList.length} devices in real-time
         </p>
       </div>
 
       {/* Device Grid */}
-      <DeviceGrid devices={devices} />
+      <DeviceGrid devices={deviceList} />
     </div>
   );
 }

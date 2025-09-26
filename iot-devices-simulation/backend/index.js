@@ -7,7 +7,7 @@ import {
   startProducer,
   sendToKafka,
   disconnectProducer,
-} from "./kafka/kafkaProducer.js"; // Import Kafka logic
+} from "./kafka/kafkaProducer.js";
 import { NUM_DEVICES, SERVER_PORT, SYSTEM_TYPES, THRESHOLDS } from "./config.js";
 import { startConsumer } from "./kafka/kafkaConsumer.js";
 
@@ -15,51 +15,81 @@ import { startConsumer } from "./kafka/kafkaConsumer.js";
 const csvWriter = createObjectCsvWriter({
   path: "./sensor_data.csv",
   header: [
-    { id: "deviceId", title: "Device ID" },      // updated
-    { id: "systemType", title: "System Type" },  // added
+    { id: "deviceId", title: "Device ID" },
+    { id: "systemType", title: "System Type" },
     { id: "timestamp", title: "Timestamp" },
     { id: "temperature", title: "Temperature (°C)" },
     { id: "current", title: "Current (A)" },
     { id: "pressure", title: "Pressure (hPa)" },
-    { id: "alert", title: "Alert" },            // added
+    { id: "alert", title: "Alert" },
   ],
 });
 
-// Initialize the CSV file if it doesn't exist
+// Initialize CSV if not exists
 if (!fs.existsSync("./sensor_data.csv")) {
-  await csvWriter.writeRecords([]); // create an empty CSV file initially
+  await csvWriter.writeRecords([]);
 }
 
-// Create Express app
+// Express app setup
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-let readings = []; // For POSTed data (existing)
-let botReadings = []; // For Kafka bot generated data (new)
+let readings = [];       // For POSTed sensor data
+let botReadings = {};    // Latest reading per device from bots
 
-// POST endpoint to accept sensor data from external clients
+// Hold all SSE clients
+const sseClients = new Set();
+
+// POST endpoint for external sensor data
 app.post("/api/sensor-data", (req, res) => {
   readings.push(req.body);
   res.status(200).json({ message: "Data received" });
 });
 
-// GET endpoint to return POSTed sensor data
+// GET all POSTed sensor data
 app.get("/api/sensor-data", (req, res) => {
   res.json(readings);
 });
 
-// GET endpoint to return Kafka bot generated sensor data
+// GET latest bot readings as JSON array
 app.get("/api/bot-sensor-data", (req, res) => {
-  res.json(botReadings);
+  res.json(Object.values(botReadings));
 });
 
-// Start server
-app.listen(SERVER_PORT, () => {
-  console.log(`Server running on http://localhost:${SERVER_PORT}`);
+// SSE endpoint for live bot sensor data streaming
+app.get("/api/bot-sensor-stream", (req, res) => {
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+  });
+  res.flushHeaders();
+
+  // Keep connection alive
+  const keepAliveInterval = setInterval(() => {
+    res.write(`: keep-alive\n\n`);
+  }, 15000);
+
+  // Add client
+  sseClients.add(res);
+
+  // Remove client on disconnect
+  req.on("close", () => {
+    clearInterval(keepAliveInterval);
+    sseClients.delete(res);
+  });
 });
 
-// --- Helper functions for alert checking ---
+// Broadcast to all SSE clients
+function broadcastToSSEClients(data) {
+  const sseData = `data: ${JSON.stringify(data)}\n\n`;
+  for (const client of sseClients) {
+    client.write(sseData);
+  }
+}
+
+// --- Helper functions ---
 function getSystemType(deviceId) {
   for (const sys of SYSTEM_TYPES) {
     if (deviceId >= sys.range[0] && deviceId <= sys.range[1]) {
@@ -78,38 +108,41 @@ function checkThresholds(systemType, reading) {
   );
 }
 
-// Start Kafka Producer + Bots
+// --- Start Kafka Producer + Bots ---
 const initializeKafkaProducer = async () => {
   const producer = await startProducer();
 
-  // Start bots as streams and send data to Kafka + CSV + store in botReadings array
   for (let i = 1; i <= NUM_DEVICES; i++) {
     const botStream = createBot(i);
+
     botStream.on("data", async (reading) => {
       try {
         const systemType = getSystemType(i);
         const alert = checkThresholds(systemType, reading);
 
         const fullReading = {
-          deviceId: `sensor_${i}`, // consistent with consumer
+          deviceId: `device_${i}`,
           systemType,
           timestamp: new Date().toISOString(),
           temperature: reading.temperature,
           current: reading.current,
           pressure: reading.pressure,
-          alert,                   // true if thresholds exceeded
+          alert,
         };
 
-        // Store in botReadings for frontend consumption
-        botReadings.push(fullReading);
+        // Update latest reading in memory
+        botReadings[fullReading.deviceId] = fullReading;
 
-        // Send the sensor data to Kafka topic
-        await sendToKafka(producer, fullReading, `sensor_${i}`);
+        // Broadcast via SSE to all clients
+        broadcastToSSEClients(fullReading);
 
-        // Write the received data to the CSV file
+        // Send to Kafka
+        await sendToKafka(producer, fullReading, `device_${i}`);
+
+        // Append to CSV
         await csvWriter.writeRecords([fullReading]);
 
-        // Log in console
+        // Console log
         if (alert) {
           console.log(
             `⚠️ ALERT: Device ${fullReading.deviceId} (${systemType}) exceeded threshold`,
@@ -122,13 +155,13 @@ const initializeKafkaProducer = async () => {
           );
         }
       } catch (error) {
-        console.error(`Error processing data for sensor_${i}:`, error);
+        console.error(`Error processing data for device_${i}:`, error);
       }
     });
   }
 };
 
-// Start Kafka Producer + Consumer
+// --- Start system ---
 const initializeSystem = async () => {
   await initializeKafkaProducer();
   await startConsumer(); // Consumer runs in parallel
@@ -138,10 +171,10 @@ initializeSystem().catch((err) =>
   console.error("Error initializing Kafka system", err)
 );
 
-// Handle graceful shutdown
+// Graceful shutdown
 process.on("SIGINT", async () => {
   try {
-    await disconnectProducer(); // Disconnect the Kafka producer
+    await disconnectProducer();
     console.log("\n👋 Kafka Producer Disconnected. Exiting...");
     process.exit(0);
   } catch (e) {
