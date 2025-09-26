@@ -93,7 +93,7 @@ const initializeKafkaProducer = async () => {
     botStream.on("data", async (reading) => {
       try {
         const fullReading = {
-          device_id: `sensor_${i}`,
+          device_id: `device_${i}`,
           timestamp: reading.timestamp, // use bot's timestamp
           temperature: reading.temperature,
           current: reading.current,
@@ -108,7 +108,7 @@ const initializeKafkaProducer = async () => {
         broadcastToSSEClients(fullReading);
 
         // Send to Kafka
-        await sendToKafka(producer, fullReading, `sensor_${i}`);
+        await sendToKafka(producer, fullReading, `device_${i}`);
 
         // Append to CSV
         await csvWriter.writeRecords([fullReading]);
@@ -116,7 +116,7 @@ const initializeKafkaProducer = async () => {
         console.log(`Device ${i} data written to CSV and broadcasted`);
 
       } catch (error) {
-        console.error(`Error processing data for sensor_${i}:`, error);
+        console.error(`Error processing data for device_${i}:`, error);
       }
     });
   }

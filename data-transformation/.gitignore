@@ -1,0 +1,9 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# CSV outputs
+*.csv
+
+# Virtual environment
+venv/
