@@ -1,10 +1,14 @@
-const express = require("express");
-const { NUM_DEVICES, SERVER_PORT } = require("./config");
-const { log } = require("./utils/logger");
-const { createBot } = require("./bots/deviceBot");
+import express from "express";
+import fetch from "node-fetch";
+import { NUM_DEVICES, SERVER_PORT } from "./config.js";
+import { log } from "./utils/logger.js";
+import { createBot } from "./bots/deviceBot.js";
+import cors from "cors"; 
 
 const app = express();
 app.use(express.json());
+
+app.use(cors());
 
 let readings = [];
 
