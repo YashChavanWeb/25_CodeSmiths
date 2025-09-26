@@ -6,7 +6,7 @@ export default function DeviceCard({ device }) {
     ok: "bg-green-500",
     warning: "bg-yellow-500",
     critical: "bg-red-500",
-    off: "bg-gray-400"
+    off: "bg-gray-400",
   };
 
   return (

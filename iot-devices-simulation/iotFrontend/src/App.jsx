@@ -1,29 +1,37 @@
 import { useEffect, useState } from "react";
-import { fetchDevices } from "./services/api";
 import DeviceGrid from "./components/DeviceGrid";
 
-function App() {
+export default function Dashboard() {
   const [devices, setDevices] = useState([]);
 
   useEffect(() => {
-    const load = async () => {
-      const data = await fetchDevices();
-      setDevices(data);
+    const fetchDevices = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/api/sensor-data");
+        const data = await res.json();
+        setDevices(data);
+      } catch (err) {
+        console.error("❌ Error fetching devices:", err);
+      }
     };
-    load();
-    const interval = setInterval(load, 3000); // refresh every 3 sec
+
+    fetchDevices();
+    const interval = setInterval(fetchDevices, 3000); // poll every 3s
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-indigo-600 text-white py-4 px-6 shadow-md">
-        <h1 className="text-xl font-bold">IoT Device Dashboard</h1>
-      </header>
+    <div className="p-6 bg-gray-100 min-h-screen">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold text-gray-800">IoT Device Dashboard</h1>
+        <p className="mt-2 sm:mt-0 text-gray-500">
+          Monitoring {devices.length} devices in real-time
+        </p>
+      </div>
 
+      {/* Device Grid */}
       <DeviceGrid devices={devices} />
     </div>
   );
 }
-
-export default App;
