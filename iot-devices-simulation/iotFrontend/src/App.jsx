@@ -9,14 +9,31 @@ export default function Dashboard() {
       try {
         const res = await fetch("http://localhost:5000/api/sensor-data");
         const data = await res.json();
-        setDevices(data);
+
+        // Transform backend data to match DeviceCard format
+        const transformed = data.map((d) => ({
+          device_id: d.device_id,
+          device_type: d.system_type,      
+          status: "ok",                    
+          metrics: {
+            current_amp: d.current,
+            temperature_c: d.temperature,
+            pressure_kpa: d.pressure,
+          },
+          location: "line-1",              
+          timestamp: d.timestamp,
+        }));
+
+        setDevices(transformed);
       } catch (err) {
         console.error("❌ Error fetching devices:", err);
       }
     };
 
     fetchDevices();
-    const interval = setInterval(fetchDevices, 3000); // poll every 3s
+
+    // Poll every 3s for updates
+    const interval = setInterval(fetchDevices, 3000);
     return () => clearInterval(interval);
   }, []);
 
