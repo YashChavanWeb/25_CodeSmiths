@@ -13,18 +13,27 @@ export default function Dashboard() {
         // Transform backend data to match DeviceCard format
         const transformed = data.map((d) => ({
           device_id: d.device_id,
-          device_type: d.system_type,      
-          status: "ok",                    
+          device_type: d.system_type,
+          status: "ok",
           metrics: {
             current_amp: d.current,
             temperature_c: d.temperature,
             pressure_kpa: d.pressure,
           },
-          location: "line-1",              
+          location: "line-1",
           timestamp: d.timestamp,
         }));
 
-        setDevices(transformed);
+        // Keep only the latest entry per device
+        const latestByDevice = Object.values(
+          transformed.reduce((acc, dev) => {
+            acc[dev.device_id] = dev; // overwrite older entries with same id
+            return acc;
+          }, {})
+        );
+
+        setDevices(latestByDevice);
+
       } catch (err) {
         console.error("❌ Error fetching devices:", err);
       }
