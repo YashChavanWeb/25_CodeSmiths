@@ -17,10 +17,17 @@ export function createBot(id) {
 
   const stream = new Readable({
     objectMode: true,
-    read() {}
+    read() { }
   });
 
+  let readingsSent = 0;  // Counter for the number of readings sent
+
   function emitReading() {
+    if (readingsSent >= 3) {
+      stream.push(null);  // End the stream after 3 readings
+      return;
+    }
+
     const reading = {
       factory_id: FACTORY_ID,
       device_id: `sensor_${id}`,
@@ -33,6 +40,8 @@ export function createBot(id) {
 
     log(`sensor_${id}`, "Generated reading:", reading);
     stream.push(reading);
+
+    readingsSent++;  // Increment the counter
 
     const delay = MIN_INTERVAL + Math.random() * (MAX_INTERVAL - MIN_INTERVAL);
     setTimeout(emitReading, delay);

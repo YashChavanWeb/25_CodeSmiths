@@ -7,8 +7,9 @@
     "dev": "nodemon index.js"
   },
   "dependencies": {
-    "cors": "^2.8.5",
     "axios": "^1.12.2",
+    "cors": "^2.8.5",
+    "csv-writer": "^1.6.0",
     "express": "^5.1.0",
     "kafkajs": "^2.2.4",
     "node-fetch": "^3.3.2"
