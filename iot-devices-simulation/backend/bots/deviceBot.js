@@ -13,7 +13,9 @@ export function createBot(id) {
 
   let systemType = "unknown";
   for (const sys of SYSTEM_TYPES) {
-    if (id >= sys.range[0] && id <= sys.range[1]) systemType = sys.type;
+    const deviceIdNumber = Number(id);
+    if (deviceIdNumber >= sys.range[0] && deviceIdNumber <= sys.range[1]) systemType = sys.type;
+    break;
   }
 
   const stream = new Readable({
@@ -25,7 +27,7 @@ export function createBot(id) {
     // Initialize the reading with NaN values for excluded devices
     const reading = {
       factory_id: FACTORY_ID,
-      device_id: `sensor_${id}`,
+      device_id: `device_${id}`,
       system_type: systemType,
       temperature: NaN,
       pressure: NaN,
@@ -48,7 +50,7 @@ export function createBot(id) {
       }
     }
 
-    log(`sensor_${id}`, "Generated reading:", reading);
+    log(`device_${id}`, "Generated reading:", reading);
 
     stream.push(reading);
 
