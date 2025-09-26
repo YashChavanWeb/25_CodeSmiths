@@ -8,25 +8,27 @@ app.use(express.json());
 
 let readings = [];
 
-// POST endpoint for bots
 app.post("/api/sensor-data", (req, res) => {
   readings.push(req.body);
-  // console.log("📡 Received sensor data:", req.body);
   res.status(200).json({ message: "Data received" });
 });
 
-// GET endpoint to view readings in browser
 app.get("/api/sensor-data", (req, res) => {
   res.json(readings);
 });
 
-// Start server
 app.listen(SERVER_PORT, () => {
   console.log(`🚀 Server running on http://localhost:${SERVER_PORT}`);
 });
 
-// Start all IoT simulator bots
-console.log(`🚀 Starting IoT Simulator with ${NUM_DEVICES} devices...\n`);
+// Start bots as streams
 for (let i = 1; i <= NUM_DEVICES; i++) {
-  createBot(i);
+  const botStream = createBot(i);
+  botStream.on("data", (reading) => {
+    fetch(`http://localhost:${SERVER_PORT}/api/sensor-data`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(reading)
+    }).catch(err => log(`sensor_${i}`, "Error sending data:", err));
+  });
 }
