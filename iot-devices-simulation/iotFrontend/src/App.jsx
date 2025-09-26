@@ -31,11 +31,19 @@ export default function Dashboard() {
 
         // Update devices state
         setDevices((prevDevices) => {
-          const updatedDevices = prevDevices.filter(
-            (device) => device.device_id !== transformed.device_id
-          );
-          return [transformed, ...updatedDevices];
+          const index = prevDevices.findIndex(d => d.device_id === transformed.device_id);
+
+          if (index !== -1) {
+            // Device already exists, update it in place
+            const updated = [...prevDevices];
+            updated[index] = { ...updated[index], ...transformed };
+            return updated;
+          } else {
+            // New device, add to the end (or wherever you want)
+            return [...prevDevices, transformed];
+          }
         });
+
       } catch (err) {
         console.error("❌ Error processing SSE data:", err);
       }
@@ -52,18 +60,23 @@ export default function Dashboard() {
     };
   }, []);
 
-  const filteredDevices = devices.filter(d => {
+  const filteredDevices = devices.filter((d) => {
+    // Filter by category first
     if (category !== "all" && d.device_type !== category) return false;
+
     if (!search) return true;
 
-    const query = search.toLowerCase();
+    const query = search.toLowerCase().trim();
+
+    // Check device_id, device_type, status, and location
     return (
-      d.device_id.toString() === query ||
+      d.device_id.toString().toLowerCase().includes(query) ||
       d.device_type.toLowerCase().includes(query) ||
       d.status.toLowerCase().includes(query) ||
       d.location.toLowerCase().includes(query)
     );
   });
+
 
   const anomalies = devices.filter(
     (d) =>
@@ -102,8 +115,8 @@ export default function Dashboard() {
                 key={cat}
                 onClick={() => setCategory(cat)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition ${category === cat
-                    ? "bg-indigo-600 text-white"
-                    : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
+                  ? "bg-indigo-600 text-white"
+                  : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
                   }`}
               >
                 {cat === "all"
