@@ -1,19 +1,21 @@
 import { useEffect, useState } from "react";
-import DeviceGrid from "./components/DeviceGrid";
+import DeviceGrid from "./components/DeviceGrid.jsx";
+import SidebarLeft from "./components/SidebarLeft.jsx";
+import SidebarRight from "./components/SidebarRight.jsx";
 
 export default function Dashboard() {
   const [devices, setDevices] = useState([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
 
+  // Fetch devices
   useEffect(() => {
     const fetchDevices = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/sensor-data");
         const data = await res.json();
 
-        // Transform backend data to match DeviceCard format
-        const transformed = data.map((d) => ({
+        const transformed = data.map(d => ({
           device_id: d.device_id,
           device_type: d.system_type,
           status: "ok",
@@ -24,9 +26,9 @@ export default function Dashboard() {
           },
           location: "line-1",
           timestamp: d.timestamp,
+          is_on: true, // relay control
         }));
 
-        // ✅ Keep only latest reading per device
         const latestByDevice = Object.values(
           transformed.reduce((acc, dev) => {
             acc[dev.device_id] = dev;
@@ -45,67 +47,86 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // ✅ Apply category and search filter
-  const filteredDevices = devices.filter((d) => {
+  // Filtered devices for main grid
+  const filteredDevices = devices.filter(d => {
     if (category !== "all" && d.device_type !== category) return false;
     if (!search) return true;
 
     const query = search.toLowerCase();
-
-    // ✅ Exact device_id match
-    if (d.device_id.toLowerCase() === query) return true;
-
-    // ✅ Partial match for type, status, location
     return (
+      d.device_id.toString() === query ||
       d.device_type.toLowerCase().includes(query) ||
       d.status.toLowerCase().includes(query) ||
       d.location.toLowerCase().includes(query)
     );
   });
 
-  return (
-    <div className="p-6 bg-gray-100 min-h-screen">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">IoT Device Dashboard</h1>
-        <p className="mt-3 sm:mt-1 text-gray-600">
-          Monitoring {devices.length} devices in real-time
-        </p>
-      </div>
+  // Detect anomalies (example thresholds)
+  const anomalies = devices.filter(
+    d =>
+      d.device_type === "container" &&
+      (d.metrics.temperature_c > 80 || d.metrics.pressure_kpa > 120)
+  );
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
-        {/* Category buttons */}
-        <div className="flex gap-2">
-          {["all", "pipe", "container", "battery_bank"].map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setCategory(cat)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                category === cat
-                  ? "bg-indigo-600 text-white"
-                  : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
-              }`}
-            >
-              {cat === "all"
-                ? "All"
-                : cat.charAt(0).toUpperCase() + cat.slice(1).replace("_", " ")}
-            </button>
-          ))}
+  // Toggle device (simulate relay control)
+  const toggleDevice = id => {
+    setDevices(prev =>
+      prev.map(d => (d.device_id === id ? { ...d, is_on: !d.is_on } : d))
+    );
+  };
+
+  return (
+    <div className="flex h-screen bg-gray-100">
+      {/* Left Sidebar */}
+      <SidebarLeft devices={devices} toggleDevice={toggleDevice} category={category} />
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col p-6 overflow-hidden">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold text-gray-800">IOT Device Dashboard</h1>
+          <p className="mt-2 sm:mt-0 text-gray-500">
+            Monitoring {devices.length} devices in real-time
+          </p>
         </div>
 
-        {/* Search bar */}
-        <input
-          type="text"
-          placeholder="Search by device ID, type, status, or location..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full sm:w-80 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-        />
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+          <div className="flex gap-2">
+            {["all", "pipe", "container", "battery_bank"].map(cat => (
+              <button
+                key={cat}
+                onClick={() => setCategory(cat)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  category === cat
+                    ? "bg-indigo-600 text-white"
+                    : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                {cat === "all"
+                  ? "All"
+                  : cat.charAt(0).toUpperCase() + cat.slice(1).replace("_", " ")}
+              </button>
+            ))}
+          </div>
+
+          <input
+            type="text"
+            placeholder="Search by device ID, type, status, location..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full sm:w-80 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+          />
+        </div>
+
+        {/* Device Grid */}
+        <div className="flex-1 overflow-auto">
+          <DeviceGrid devices={filteredDevices} />
+        </div>
       </div>
 
-      {/* Device Grid */}
-      <DeviceGrid devices={filteredDevices} />
+      {/* Right Sidebar */}
+      <SidebarRight anomalies={anomalies} />
     </div>
   );
 }
