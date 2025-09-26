@@ -11,7 +11,7 @@ import {
 import { NUM_DEVICES, SERVER_PORT, SYSTEM_TYPES, THRESHOLDS } from "./config.js";
 import { startConsumer } from "./kafka/kafkaConsumer.js";
 
-// CSV Writer setup
+
 // CSV Writer setup
 const csvWriter = createObjectCsvWriter({
   path: "./sensor_data.csv",
@@ -38,6 +38,7 @@ app.use(cors());
 
 let readings = [];       // For POSTed sensor data
 let botReadings = {};    // Latest reading per device from bots
+
 
 // Active device tracking
 const activeDevices = new Set(); // Track active devices (those that have been "included")
@@ -69,6 +70,7 @@ app.get("/api/bot-sensor-stream", (req, res) => {
     "Connection": "keep-alive",
   });
   res.flushHeaders();
+
 
   // Keep connection alive
   const keepAliveInterval = setInterval(() => {
@@ -176,15 +178,14 @@ const initializeKafkaProducer = async () => {
         // Append to CSV
         await csvWriter.writeRecords([fullReading]);
 
-        // Console log
         if (alert) {
           console.log(
-            `⚠ ALERT: Device ${fullReading.deviceId} (${systemType}) exceeded threshold`,
+            `ALERT: Device ${fullReading.deviceId} (${systemType}) exceeded threshold`,
             fullReading
           );
         } else {
           console.log(
-            `✅ Device ${fullReading.deviceId} data received`,
+            `Device ${fullReading.deviceId} data received`,
             fullReading
           );
         }
@@ -213,7 +214,7 @@ initializeSystem().catch((err) =>
 process.on("SIGINT", async () => {
   try {
     await disconnectProducer();
-    console.log("\n👋 Kafka Producer Disconnected. Exiting...");
+    console.log("\nKafka Producer Disconnected. Exiting...");
     process.exit(0);
   } catch (e) {
     console.error("Error during graceful shutdown", e);

@@ -59,7 +59,7 @@ export const sendToKafka = async (producer, message, key) => {
       messages: [{ key, value: JSON.stringify(message) }],
     });
     console.log(
-      `Data sent to Kafka (Device ${key}) ${message.alert ? "⚠️ ALERT" : ""}`
+      `Data sent to Kafka (Device ${key}) ${message.alert ? "ALERT" : ""}`
     );
   } catch (error) {
     console.error("Error sending data to Kafka:", error);
@@ -84,7 +84,7 @@ export const startSimulation = async (producer) => {
 
       if (sensorData.alert) {
         console.log(
-          `⚠️ ALERT: Device ${i} (${sensorData.systemType}) exceeded threshold`,
+          `ALERT: Device ${i} (${sensorData.systemType}) exceeded threshold`,
           sensorData
         );
       }

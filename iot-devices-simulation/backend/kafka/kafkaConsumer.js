@@ -23,7 +23,7 @@ export const startConsumer = async () => {
 
         if (data.alert) {
           console.log(
-            `⚠️ ALERT DETECTED: Device ${data.deviceId} (${data.systemType}) exceeded threshold`,
+            `ALERT DETECTED: Device ${data.deviceId} (${data.systemType}) exceeded threshold`,
             {
               current: data.current,
               temperature: data.temperature,
@@ -33,7 +33,7 @@ export const startConsumer = async () => {
           );
         } else {
           console.log(
-            `✅ Device ${data.deviceId} data received`,
+            `Device ${data.deviceId} data received`,
             {
               current: data.current,
               temperature: data.temperature,

@@ -1,12 +1,11 @@
-// deviceControl.js
 
 // List of devices to exclude completely
 export const excludedDevices = new Set([]);
 
 // List of fields to exclude for specific devices
 export const fieldExclusions = {
-    12: ['temperature'], // Device 12 should not have temperature
-    // Add more device-specific field exclusions here in the future
+    12: ['temperature'], 
+   
 };
 
 export function shouldExcludeDevice(id) {

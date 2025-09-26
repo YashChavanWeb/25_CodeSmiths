@@ -13,7 +13,7 @@ export const SYSTEM_TYPES = [
   { type: "battery_bank", range: [31, 50] }
 ];
 
-// Thresholds (tune these as per your logic)
+// Thresholds 
 export const THRESHOLDS = {
   pipe: {
     current: 2,       // Amps
