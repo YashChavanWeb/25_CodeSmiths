@@ -2,9 +2,31 @@
 export const excludedDevices = new Set([]);
 
 // List of fields to exclude for aspecific devices
-export const fieldExclusions = {
-    12: ['temperature'],
-};
+export const fieldExclusions = {};
+
+// Function to add field exclusions for a device
+export function addFieldExclusion(deviceId, field) {
+    if (!fieldExclusions[deviceId]) {
+        fieldExclusions[deviceId] = [];
+    }
+    if (!fieldExclusions[deviceId].includes(field)) {
+        fieldExclusions[deviceId].push(field);
+    }
+}
+
+// Function to remove field exclusions for a device
+export function removeFieldExclusion(deviceId, field) {
+    if (fieldExclusions[deviceId]) {
+        const index = fieldExclusions[deviceId].indexOf(field);
+        if (index > -1) {
+            fieldExclusions[deviceId].splice(index, 1);
+        }
+        // Remove the device entry if no exclusions remain
+        if (fieldExclusions[deviceId].length === 0) {
+            delete fieldExclusions[deviceId];
+        }
+    }
+}
 
 // Function to switch the state of a device
 export function switchDeviceState(devices, deviceId, action) {

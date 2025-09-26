@@ -1,4 +1,5 @@
-import { botReadings, initializeDeviceState, deviceStates } from "../utils/state.js";
+import { botReadings, initializeDeviceState, deviceStates, getFailureValue } from "../utils/state.js";
+import { getFieldExclusions } from "../utils/deviceControl.js";
 import { getSystemType, checkThresholds } from "../utils/botUtils.js";  // Import the function
 import { sendToKafka } from "../kafka/kafkaProducer.js";
 import { createObjectCsvWriter } from "csv-writer";
@@ -105,12 +106,18 @@ export const handleBotReading = async (reading, i, producer) => {
         // Check if device is turned off
         const isDeviceOff = deviceState && deviceState.state === 'off';
 
-        // If device is off, set readings to NaN, otherwise use actual readings
-        const sensorValues = isDeviceOff ? {
-            temperature: NaN,
-            current: NaN,
-            pressure: NaN
-        } : reading;
+        // Get excluded fields for this device
+        const excludedFields = getFieldExclusions(i);
+
+        // Get sensor values considering device state, exclusions, and failures
+        const sensorValues = {
+            temperature: isDeviceOff || excludedFields.includes('temperature') ?
+                NaN : getFailureValue(i, 'temperature', reading.temperature),
+            current: isDeviceOff || excludedFields.includes('current') ?
+                NaN : getFailureValue(i, 'current', reading.current),
+            pressure: isDeviceOff || excludedFields.includes('pressure') ?
+                NaN : getFailureValue(i, 'pressure', reading.pressure)
+        };
 
         const alert = isDeviceOff ? false : checkThresholds(systemType, reading, THRESHOLDS);
 
