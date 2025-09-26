@@ -38,7 +38,6 @@ export function createBot(id) {
     setTimeout(emitReading, delay);
   }
 
-  // Start emitting immediately with a random delay
   const initialDelay = Math.random() * (MAX_INTERVAL - MIN_INTERVAL);
   setTimeout(emitReading, initialDelay);
 

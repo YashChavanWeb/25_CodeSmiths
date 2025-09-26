@@ -1,11 +1,13 @@
-import DeviceCard from "./DeviceCard";
+import DeviceCard from "./DeviceCard.jsx";
 
 export default function DeviceGrid({ devices }) {
   return (
-    <div className="grid gap-6 p-4 grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
-      {devices.map((device) => (
-        <DeviceCard key={device.device_id} device={device} />
-      ))}
+    <div className="flex-1 overflow-y-auto p-4">
+      <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        {devices.map(d => (
+          <DeviceCard key={d.device_id} device={d} />
+        ))}
+      </div>
     </div>
   );
 }
