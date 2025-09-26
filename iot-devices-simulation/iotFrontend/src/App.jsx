@@ -9,7 +9,7 @@ export default function Dashboard() {
   const [category, setCategory] = useState("all");
 
   useEffect(() => {
-    const eventSource = new EventSource("http://localhost:5000/api/bot-sensor-stream");
+    const eventSource = new EventSource("http://localhost:3000/api/bot-sensor-stream");
 
     eventSource.onmessage = (event) => {
       try {
@@ -143,4 +143,4 @@ export default function Dashboard() {
       <SidebarRight anomalies={anomalies} />
     </div>
   );
-}
+} 
