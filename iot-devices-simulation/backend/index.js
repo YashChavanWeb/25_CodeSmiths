@@ -1,23 +1,28 @@
+// index.js
 const express = require("express");
+const cors = require("cors");
 const { NUM_DEVICES, SERVER_PORT } = require("./config");
 const { log } = require("./utils/logger");
 const { createBot } = require("./bots/deviceBot");
 
 const app = express();
 app.use(express.json());
+app.use(cors()); // allow frontend to fetch
 
-let readings = []; // store all incoming readings
+// Store latest reading per device
+let readings = {};
 
 // POST endpoint to receive data from bots
 app.post("/api/sensor-data", (req, res) => {
-  readings.push(req.body);
-  console.log("📡 Received sensor data:", req.body);
+  const data = req.body;
+  readings[data.device_id] = data; // overwrite old reading
+  console.log("📡 Received sensor data:", data);
   res.status(200).json({ message: "Data received" });
 });
 
-// GET endpoint to view all readings in browser
+// GET endpoint to fetch all latest readings
 app.get("/api/sensor-data", (req, res) => {
-  res.json(readings);
+  res.json(Object.values(readings));
 });
 
 // Start server
