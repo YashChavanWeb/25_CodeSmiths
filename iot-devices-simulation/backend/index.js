@@ -25,7 +25,7 @@ app.listen(SERVER_PORT, () => {
   console.log(`🚀 Server running on http://localhost:${SERVER_PORT}`);
 });
 
-// Start bots as streams
+
 for (let i = 1; i <= NUM_DEVICES; i++) {
   const botStream = createBot(i);
   botStream.on("data", (reading) => {

@@ -1,5 +1,4 @@
 export default function SidebarLeft({ devices, toggleDevice, category }) {
-  // Filter devices based on category
   const filteredDevices =
     category === "all" ? devices : devices.filter(d => d.device_type === category);
 

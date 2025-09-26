@@ -10,7 +10,6 @@ export default function DeviceCard({ device }) {
 
   return (
     <div className="p-5 bg-gradient-to-br from-white to-gray-50 shadow-lg rounded-2xl border border-gray-200 hover:shadow-xl transition-shadow duration-300">
-      {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-xl font-bold text-gray-800">{device.device_id}</h3>
         <span
@@ -22,10 +21,10 @@ export default function DeviceCard({ device }) {
         </span>
       </div>
 
-      {/* Device Type */}
+      
       <p className="text-sm text-gray-500 italic">{device.device_type}</p>
 
-      {/* Metrics */}
+      
       <div className="mt-4 grid grid-row-3 gap-3 text-[0.6em]">
         <div className="bg-white px-3 py-1 rounded-full border shadow-sm flex flex-row justify-between">
           <Zap className="w-4 h-4 text-indigo-500 mb-1" />
@@ -50,7 +49,7 @@ export default function DeviceCard({ device }) {
         </div>
       </div>
 
-      {/* Location */}
+      
       <p className="mt-4 text-xs text-gray-400">
          Location: <span className="font-medium text-gray-600">{device.location}</span>
       </p>
