@@ -1,4 +1,3 @@
-/* eslint-disable react/prop-types */
 import { Zap, Thermometer, Gauge } from "lucide-react";
 
 export default function DeviceCard({ device }) {
@@ -6,7 +5,7 @@ export default function DeviceCard({ device }) {
     ok: "bg-green-500",
     warning: "bg-yellow-500",
     critical: "bg-red-500",
-    off: "bg-gray-400"
+    off: "bg-gray-400",
   };
 
   return (
@@ -25,18 +24,18 @@ export default function DeviceCard({ device }) {
       <p className="text-sm text-gray-500 italic">{device.device_type}</p>
 
       {/* Metrics */}
-      <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
-        <div className="bg-white p-3 rounded-xl border shadow-sm flex flex-col items-center">
+      <div className="mt-4 grid grid-row-3 gap-3 text-sm">
+        <div className="bg-white px-3 py-1 rounded-full border shadow-sm flex flex-row justify-between">
           <Zap className="w-5 h-5 text-indigo-500 mb-1" />
           <p className="font-semibold">{device.metrics.current_amp} A</p>
           <p className="text-xs text-gray-500">Current</p>
         </div>
-        <div className="bg-white p-3 rounded-xl border shadow-sm flex flex-col items-center">
+        <div className="bg-white px-3 py-1 rounded-full border shadow-sm flex flex-row justify-between">
           <Thermometer className="w-5 h-5 text-red-500 mb-1" />
           <p className="font-semibold">{device.metrics.temperature_c} °C</p>
           <p className="text-xs text-gray-500">Temp</p>
         </div>
-        <div className="bg-white p-3 rounded-xl border shadow-sm flex flex-col items-center">
+        <div className="bg-white px-3 py-1 rounded-full border shadow-sm flex flex-row justify-between">
           <Gauge className="w-5 h-5 text-green-500 mb-1" />
           <p className="font-semibold">{device.metrics.pressure_kpa} kPa</p>
           <p className="text-xs text-gray-500">Pressure</p>

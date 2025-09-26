@@ -1,29 +1,63 @@
 import { useEffect, useState } from "react";
-import { fetchDevices } from "./services/api";
 import DeviceGrid from "./components/DeviceGrid";
 
-function App() {
+export default function Dashboard() {
   const [devices, setDevices] = useState([]);
 
   useEffect(() => {
-    const load = async () => {
-      const data = await fetchDevices();
-      setDevices(data);
+    const fetchDevices = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/api/sensor-data");
+        const data = await res.json();
+
+        // Transform backend data to match DeviceCard format
+        const transformed = data.map((d) => ({
+          device_id: d.device_id,
+          device_type: d.system_type,
+          status: "ok",
+          metrics: {
+            current_amp: d.current,
+            temperature_c: d.temperature,
+            pressure_kpa: d.pressure,
+          },
+          location: "line-1",
+          timestamp: d.timestamp,
+        }));
+
+        // Keep only the latest entry per device
+        const latestByDevice = Object.values(
+          transformed.reduce((acc, dev) => {
+            acc[dev.device_id] = dev; // overwrite older entries with same id
+            return acc;
+          }, {})
+        );
+
+        setDevices(latestByDevice);
+
+      } catch (err) {
+        console.error("❌ Error fetching devices:", err);
+      }
     };
-    load();
-    const interval = setInterval(load, 3000); // refresh every 3 sec
+
+    fetchDevices();
+
+    // Poll every 3s for updates
+    const interval = setInterval(fetchDevices, 3000);
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-indigo-600 text-white py-4 px-6 shadow-md">
-        <h1 className="text-xl font-bold">IoT Device Dashboard</h1>
-      </header>
+    <div className="p-6 bg-gray-100 min-h-screen">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold text-gray-800">IoT Device Dashboard</h1>
+        <p className="mt-2 sm:mt-0 text-gray-500">
+          Monitoring {devices.length} devices in real-time
+        </p>
+      </div>
 
+      {/* Device Grid */}
       <DeviceGrid devices={devices} />
     </div>
   );
 }
-
-export default App;
