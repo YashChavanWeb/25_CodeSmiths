@@ -4,6 +4,7 @@ import { MIN_INTERVAL, MAX_INTERVAL, FACTORY_ID, SYSTEM_TYPES } from "../config.
 import TemperatureSensor from "../sensors/TemperatureSensor.js";
 import PressureSensor from "../sensors/PressureSensor.js";
 import CurrentSensor from "../sensors/CurrentSensor.js";
+import { shouldExcludeDevice, getFieldExclusions } from '../utils/deviceControl.js'; // Import the new module
 
 export function createBot(id) {
   const tempSensor = new TemperatureSensor();
@@ -12,7 +13,9 @@ export function createBot(id) {
 
   let systemType = "unknown";
   for (const sys of SYSTEM_TYPES) {
-    if (id >= sys.range[0] && id <= sys.range[1]) systemType = sys.type;
+    const deviceIdNumber = Number(id);
+    if (deviceIdNumber >= sys.range[0] && deviceIdNumber <= sys.range[1]) systemType = sys.type;
+    break;
   }
 
   const stream = new Readable({
@@ -21,17 +24,34 @@ export function createBot(id) {
   });
 
   function emitReading() {
+    // Initialize the reading with NaN values for excluded devices
     const reading = {
       factory_id: FACTORY_ID,
       device_id: `device_${id}`,
       system_type: systemType,
-      temperature: tempSensor.read(),
-      pressure: pressureSensor.read(),
-      current: currentSensor.read(),
+      temperature: NaN,
+      pressure: NaN,
+      current: NaN,
       timestamp: new Date().toISOString()
     };
 
+    // If the device is not excluded, update the reading with real values
+    if (!shouldExcludeDevice(id)) {
+      const fieldExclusions = getFieldExclusions(id);
+
+      if (!fieldExclusions.includes('temperature')) {
+        reading.temperature = tempSensor.read();
+      }
+      if (!fieldExclusions.includes('pressure')) {
+        reading.pressure = pressureSensor.read();
+      }
+      if (!fieldExclusions.includes('current')) {
+        reading.current = currentSensor.read();
+      }
+    }
+
     log(`device_${id}`, "Generated reading:", reading);
+
     stream.push(reading);
 
     const delay = MIN_INTERVAL + Math.random() * (MAX_INTERVAL - MIN_INTERVAL);

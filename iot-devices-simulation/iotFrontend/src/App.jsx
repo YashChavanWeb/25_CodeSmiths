@@ -8,45 +8,49 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
 
-
   useEffect(() => {
-    const fetchDevices = async () => {
-      try {
-        const res = await fetch("http://localhost:5000/api/sensor-data");
-        const data = await res.json();
+    const eventSource = new EventSource("http://localhost:5000/api/bot-sensor-stream");
 
-        const transformed = data.map(d => ({
-          device_id: d.device_id,
-          device_type: d.system_type,
-          status: "ok",
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        const transformed = {
+          device_id: data.deviceId,
+          device_type: data.systemType,
+          status: data.alert ? "alert" : "ok",
           metrics: {
-            current_amp: d.current,
-            temperature_c: d.temperature,
-            pressure_kpa: d.pressure,
+            current_amp: data.current,
+            temperature_c: data.temperature,
+            pressure_kpa: data.pressure,
           },
           location: "line-1",
-          timestamp: d.timestamp,
+          timestamp: data.timestamp,
           is_on: true,
-        }));
+        };
 
-        const latestByDevice = Object.values(
-          transformed.reduce((acc, dev) => {
-            acc[dev.device_id] = dev;
-            return acc;
-          }, {})
-        );
-
-        setDevices(latestByDevice);
+        // Update devices state
+        setDevices((prevDevices) => {
+          const updatedDevices = prevDevices.filter(
+            (device) => device.device_id !== transformed.device_id
+          );
+          return [transformed, ...updatedDevices];
+        });
       } catch (err) {
-        console.error("❌ Error fetching devices:", err);
+        console.error("❌ Error processing SSE data:", err);
       }
     };
 
-    fetchDevices();
-    const interval = setInterval(fetchDevices, 3000);
-    return () => clearInterval(interval);
-  }, []);
+    eventSource.onerror = (err) => {
+      console.error("❌ Error with SSE connection:", err);
+      eventSource.close();
+    };
 
+    // Clean up the SSE connection on component unmount
+    return () => {
+      eventSource.close();
+    };
+  }, []);
 
   const filteredDevices = devices.filter(d => {
     if (category !== "all" && d.device_type !== category) return false;
@@ -62,26 +66,28 @@ export default function Dashboard() {
   });
 
   const anomalies = devices.filter(
-    d =>
+    (d) =>
       d.device_type === "container" &&
       (d.metrics.temperature_c > 80 || d.metrics.pressure_kpa > 120)
   );
 
-
-  const toggleDevice = id => {
-    setDevices(prev =>
-      prev.map(d => (d.device_id === id ? { ...d, is_on: !d.is_on } : d))
+  const toggleDevice = (id) => {
+    setDevices((prev) =>
+      prev.map((d) =>
+        d.device_id === id ? { ...d, is_on: !d.is_on } : d
+      )
     );
   };
 
   return (
     <div className="flex h-screen bg-gray-100">
-
-      <SidebarLeft devices={devices} toggleDevice={toggleDevice} category={category} />
-
+      <SidebarLeft
+        devices={devices}
+        toggleDevice={toggleDevice}
+        category={category}
+      />
 
       <div className="flex-1 flex flex-col p-6 overflow-hidden">
-
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6">
           <h1 className="text-3xl font-bold text-gray-800">IOT Device Dashboard</h1>
           <p className="mt-2 sm:mt-0 text-gray-500">
@@ -89,18 +95,16 @@ export default function Dashboard() {
           </p>
         </div>
 
-
         <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
           <div className="flex gap-2">
-            {["all", "pipe", "container", "battery_bank"].map(cat => (
+            {["all", "pipe", "container", "battery_bank"].map((cat) => (
               <button
                 key={cat}
                 onClick={() => setCategory(cat)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                  category === cat
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${category === cat
                     ? "bg-indigo-600 text-white"
                     : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
-                }`}
+                  }`}
               >
                 {cat === "all"
                   ? "All"
@@ -113,11 +117,10 @@ export default function Dashboard() {
             type="text"
             placeholder="Search by device ID, type, status, location..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
             className="w-full sm:w-80 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           />
         </div>
-
 
         <div className="flex-1 overflow-auto">
           <DeviceGrid devices={filteredDevices} />
