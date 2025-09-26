@@ -53,3 +53,6 @@ export const disconnectConsumer = async () => {
   await consumer.disconnect();
   console.log("Kafka Consumer disconnected");
 };
+
+
+
