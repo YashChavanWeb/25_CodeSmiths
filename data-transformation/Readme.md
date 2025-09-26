@@ -1,0 +1,119 @@
+### **README.md**
+
+```markdown
+# IoT Sensor Data Transformation
+
+This project cleans, aggregates, and computes safety metrics from IoT device sensor data for industrial monitoring.
+
+## Features
+- Removes duplicates and fills missing numeric values.
+- Handles outliers while keeping real anomalies for safety monitoring.
+- Calculates derived metrics:
+  - Power (W) from current
+  - Temperature change rate (Temp_Rate)
+- Converts timestamps to IST for local dashboard visualization.
+- Aggregates data per minute for smoother trends.
+- Applies rolling average smoothing to reduce noise.
+- Flags unsafe readings based on configurable thresholds.
+- Computes a single weighted **Safety Score** per device for quick monitoring.
+- Rolling min/max statistics for trend analysis.
+
+## Configurable Parameters
+All thresholds, weights, numeric columns, and smoothing windows are in `metrics_config.json` for easy adjustments without changing code.
+
+## File Structure
+```
+
+data-transformation/
+├─ transform.py        # Main transformation script
+├─ metrics_config.json # Thresholds, weights, rolling window
+├─ transformed_data/   # Optional folder to save cleaned/aggregated CSVs
+├─ sensor_data_cleaned.csv
+├─ sensor_data_aggregated.csv
+
+````
+
+## How to Use
+1. Place raw sensor CSV at `../iot-devices-simulation/backend/sensor_data.csv`
+2. Adjust thresholds/weights in `metrics_config.json` if needed.
+3. Run the script:
+```bash
+python transform.py
+````
+
+4. Outputs:
+
+   * Cleaned CSV: `sensor_data_cleaned.csv`
+   * Aggregated CSV with safety score: `sensor_data_aggregated.csv`
+
+## Notes
+
+* The script keeps real anomalies to ensure safety monitoring is accurate.
+* Rolling averages and per-minute aggregation reduce noise while preserving important trends.
+
+```
+
+
+---
+
+Turn on docker desktop
+
+1. zookeeper installation
+   docker run -d --name zookeeper -p 2181:2181 zookeeper
+
+Set IP
+docker run -d --name kafka -p 9092:9092 ^
+-e KAFKA_ZOOKEEPER_CONNECT=192.168.137.35:2181 ^
+-e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://192.168.137.35:9092 ^
+-e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 ^
+confluentinc/cp-kafka:6.2.10
+
+Metal / Chemical industry
+hazardous
+kafka
+ingest the data
+multiple machines
+10 secs
+range
+out of range - anamonly detection
+
+clean kafka data
+analyze data
+hazardous scenes
+realtime
+
+Here’s a clear table with the chemical mentioned (using **Ammonia (NH₃)** as an example):
+
+| **Chemical**      | **Device**        | **Sensor**      | **Normal Range**  | **Dangerous Range**                                               |
+| ----------------- | ----------------- | --------------- | ----------------- | ----------------------------------------------------------------- |
+| **Ammonia (NH₃)** | **Storage Tank**  | Temperature     | -30°C to 40°C     | ↑ Above 50°C: Risk of explosion or venting                        |
+|                   |                   | Pressure        | 1 to 2 bar        | ↑ Above 2.5 bar: Too much pressure, could burst                   |
+|                   |                   | Current (Motor) | 50% to 80% of max | ↑ Above max: Motor overload, could fail                           |
+|                   | **Transfer Pipe** | Temperature     | -20°C to 40°C     | ↑ Above 50°C: Risk of vaporization or rupture                     |
+|                   |                   | Pressure        | 5 to 20 bar       | ↑ Surge >1.2x Normal: Blockage, rupture; ↓ Near 0 bar: Pump issue |
+|                   | **Reactor**       | Temperature     | 200°C to 500°C    | ↑ Above 550°C: Damage to catalyst, explosion risk                 |
+|                   |                   | Pressure        | 1 to 5 bar        | ↑ Above 1.2x Normal: Overpressure, risk of failure                |
+|                   | **All Devices**   | Sensor Signal   | 4 to 20 mA        | <3.6 mA or >21 mA: Sensor or wiring problem                       |
+
+This table lists the **Ammonia (NH₃)** chemical along with its equipment, sensor ranges, and the danger zones. Let me know if you need it adjusted further!
+
+# Why
+
+Here are the **top 3 uses** of **Ammonia (NH₃)**:
+
+### 1. **Fertilizer Production**
+
+- **Primary use**: Ammonia is the main ingredient in many fertilizers (like urea and ammonium nitrate).
+- **Why**: It provides essential nitrogen for plant growth, making it crucial for **global food production**.
+
+### 2. **Chemical Manufacturing**
+
+- **Feedstock for other chemicals**: Used to produce chemicals like **nitric acid**, **hydrazine**, and **ammonium sulfate**.
+- **Why**: It's a building block for a wide range of industrial chemicals.
+
+### 3. **Refrigeration**
+
+- **Industrial cooling**: Ammonia is used as a coolant in large refrigeration systems.
+- **Why**: It’s efficient and widely used in **food processing** and **cold storage** due to its excellent heat absorption properties.
+
+These are the main ways ammonia is used in industry.

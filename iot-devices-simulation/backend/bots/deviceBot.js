@@ -17,13 +17,13 @@ export function createBot(id) {
 
   const stream = new Readable({
     objectMode: true,
-    read() {}
+    read() { }
   });
 
   function emitReading() {
     const reading = {
       factory_id: FACTORY_ID,
-      device_id: `device-${id}`,
+      device_id: `device_${id}`,
       system_type: systemType,
       temperature: tempSensor.read(),
       pressure: pressureSensor.read(),
@@ -31,7 +31,7 @@ export function createBot(id) {
       timestamp: new Date().toISOString()
     };
 
-    log(`sensor_${id}`, "Generated reading:", reading);
+    log(`device_${id}`, "Generated reading:", reading);
     stream.push(reading);
 
     const delay = MIN_INTERVAL + Math.random() * (MAX_INTERVAL - MIN_INTERVAL);

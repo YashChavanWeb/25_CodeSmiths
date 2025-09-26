@@ -8,21 +8,21 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
 
-
   useEffect(() => {
-    const fetchDevices = async () => {
+    const eventSource = new EventSource("http://localhost:5000/api/bot-sensor-stream");
+
+    eventSource.onmessage = (event) => {
       try {
-        const res = await fetch("http://localhost:5000/api/sensor-data");
-        const data = await res.json();
+        const data = JSON.parse(event.data);
 
         const transformed = data.map(d => ({
           device_id: d.device_id,
           device_type: d.system_type,
           status: "ok",
           metrics: {
-            current_amp: d.current,
-            temperature_c: d.temperature,
-            pressure_kpa: d.pressure,
+            current_amp: data.current,
+            temperature_c: data.temperature,
+            pressure_kpa: data.pressure,
           },
           location: "line-1",
           timestamp: d.timestamp,
@@ -37,8 +37,9 @@ export default function Dashboard() {
         );
 
         setDevices(latestByDevice);
+
       } catch (err) {
-        console.error("❌ Error fetching devices:", err);
+        console.error("❌ Failed to parse SSE message:", err);
       }
     };
 
