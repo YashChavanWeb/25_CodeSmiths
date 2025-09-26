@@ -1,4 +1,4 @@
-class TemperatureSensor {
+export default class TemperatureSensor {
   constructor(base = 30) {
     this.base = base;
   }
@@ -7,5 +7,3 @@ class TemperatureSensor {
     return +(this.base + (Math.random() * 4 - 2)).toFixed(2);
   }
 }
-
-module.exports = TemperatureSensor;
