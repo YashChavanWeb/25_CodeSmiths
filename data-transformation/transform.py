@@ -2,58 +2,71 @@ import pandas as pd
 import os
 import json
 
-#  Paths
+# Paths
 RAW_CSV = "../iot-devices-simulation/backend/sensor_data.csv"
 CLEAN_CSV = "./sensor_data_cleaned.csv"
 AGG_CSV = "./sensor_data_aggregated.csv"
 
-#  make sure output folder exists
+# Make sure output folder exists
 os.makedirs("./transformed_data", exist_ok=True)
 
-#  load config json so thresholds & weights can change easily
-with open("metrics_config.json") as f:
-    config = json.load(f)
+# Load config JSON so thresholds & weights can change easily
+try:
+    with open("metrics_config.json") as f:
+        config = json.load(f)
+except FileNotFoundError:
+    print("metrics_config.json not found!")
+    raise
 
-NUMERIC_COLS = config["NUMERIC_COLS"]  # numbers we care about
+NUMERIC_COLS = config["NUMERIC_COLS"]  # Columns we care about
 OUTLIER_RANGES = {
     k: tuple(v) for k, v in config["OUTLIER_RANGES"].items()
-}  # cut crazy values
+}  # Cut crazy values
 AGG_METRICS = {
     k: tuple(v) for k, v in config["AGG_METRICS"].items()
-}  # for safety score
-WEIGHTS = config["WEIGHTS"]  # how much each metric counts
-ROLLING_WINDOW = config["ROLLING_WINDOW"]  # smoothing window
+}  # For safety score
+WEIGHTS = config["WEIGHTS"]  # How much each metric counts
+ROLLING_WINDOW = config["ROLLING_WINDOW"]  # Smoothing window
 
-#  load csv with proper encoding (UTF-8 or ISO-8859-1 based on your CSV encoding)
+# Load CSV with proper encoding (UTF-8 or ISO-8859-1 based on your CSV encoding)
 print("Loading raw CSV...")
-df = pd.read_csv(
-    RAW_CSV, encoding="utf-8"
-)  # Try utf-8 first; fallback to "ISO-8859-1" if needed
+try:
+    df = pd.read_csv(RAW_CSV, encoding="utf-8")
+except UnicodeDecodeError:
+    print("UTF-8 encoding failed. Trying ISO-8859-1...")
+    df = pd.read_csv(RAW_CSV, encoding="ISO-8859-1")
+
 print(f"Loaded {len(df)} rows")
 
 # Clean column names by stripping spaces and removing special characters
 df.columns = df.columns.str.strip().str.replace("Â", "", regex=False)
 print("Cleaned column names")
 
-#  remove duplicates so we don’t double count
+# Remove duplicates to avoid double counting
 df = df.drop_duplicates(subset=["Device ID", "Timestamp"])
 print(f"After duplicates removal: {len(df)} rows")
 
-#  fill missing numbers to avoid NaNs messing up calculations
+# Fill missing values to avoid NaNs messing up calculations
 for col in NUMERIC_COLS:
-    median = df[col].median()
-    df[col] = df[col].fillna(median)
-    print(f"Filled missing values in {col} with median {median}")
+    if col in df.columns:
+        median = df[col].median()
+        df[col] = df[col].fillna(median)
+        print(f"Filled missing values in {col} with median {median}")
+    else:
+        print(f"Warning: Column {col} not found in the data!")
 
-#  remove extreme spikes, but keep anomalies that are within physical limits
+# Remove extreme spikes, but keep anomalies that are within physical limits
 for col, (low, high) in OUTLIER_RANGES.items():
-    before = len(df)
-    df = df[(df[col] >= low) & (df[col] <= high)]
-    after = len(df)
-    print(f"Removed insane sensor spikes from {col}: {before - after} rows dropped")
+    if col in df.columns:
+        before = len(df)
+        df = df[(df[col] >= low) & (df[col] <= high)]
+        after = len(df)
+        print(f"Removed insane sensor spikes from {col}: {before - after} rows dropped")
+    else:
+        print(f"Warning: Column {col} not found for outlier filtering!")
 
-#  derived features
-df["Power (W)"] = df["Current (A)"] * 220  # simple power calc
+# Derived features
+df["Power (W)"] = df["Current (A)"] * 220  # Simple power calculation
 df["Timestamp"] = pd.to_datetime(df["Timestamp"], utc=True)
 df = df.sort_values(by=["Device ID", "Timestamp"])
 df["Temp_Rate"] = (
@@ -63,15 +76,14 @@ df["Temp_Rate"] = (
 df["Temp_Rate"] = df["Temp_Rate"].fillna(0)
 print("Derived features: Power (W), Temp_Rate added")
 
-#  convert to IST so dashboard matches local time
+# Convert to IST so dashboard matches local time
 df["Timestamp_IST"] = df["Timestamp"].dt.tz_convert("Asia/Kolkata")
 
-#  save cleaned csv for debugging / reuse
+# Save cleaned CSV for debugging / reuse
 df.to_csv(CLEAN_CSV, index=False)
 print(f"Cleaned CSV saved at {CLEAN_CSV}")
 
-#  aggregate per minute because per-second is too noisy
-# 1 min resolution is enough for detecting unsafe patterns in industrial IoT
+# Aggregate per minute because per-second is too noisy (1 min resolution is enough for detecting unsafe patterns)
 df["Minute"] = df["Timestamp_IST"].dt.floor("min")
 agg_df = (
     df.groupby(["Device ID", "Minute"])
@@ -85,7 +97,7 @@ agg_df = (
     .reset_index()
 )
 
-#  smooth metrics to reduce random spikes
+# Smooth metrics to reduce random spikes
 agg_df[["avg_temp_smooth", "avg_current_smooth", "total_power_smooth"]] = (
     agg_df.groupby("Device ID")[["avg_temp", "avg_current", "total_power"]]
     .rolling(ROLLING_WINDOW, min_periods=1)
@@ -94,13 +106,17 @@ agg_df[["avg_temp_smooth", "avg_current_smooth", "total_power_smooth"]] = (
 )
 print(f"Applied {ROLLING_WINDOW}-min rolling average smoothing")
 
-#  flag anomalies for monitoring
+# Flag anomalies for monitoring
 for col, (low, high) in AGG_METRICS.items():
-    alert_col = col + "_anomaly"
-    agg_df[alert_col] = ~agg_df[col].between(low, high)
+    if col in agg_df.columns:
+        alert_col = col + "_anomaly"
+        agg_df[alert_col] = ~agg_df[col].between(low, high)
+    else:
+        print(f"Warning: Column {col} not found for anomaly detection!")
+
 print("Flagged anomalies for temperature, current, and pressure")
 
-#  rolling stats for trends/charts
+# Rolling stats for trends/charts
 agg_df[["temp_roll_max", "temp_roll_min"]] = (
     agg_df.groupby("Device ID")["avg_temp_smooth"]
     .rolling(ROLLING_WINDOW, min_periods=1)
@@ -116,15 +132,20 @@ agg_df[["power_roll_max", "power_roll_min"]] = (
 )
 print("Added rolling max/min statistics for temp & power")
 
-#  calculate safety score based on weighted risk
+# Calculate safety score based on weighted risk
 for col, (low, high) in AGG_METRICS.items():
-    risk_col = col + "_risk"
-    agg_df[risk_col] = ((agg_df[col] - low) / (high - low)).clip(0, 1)  # normalize 0-1
+    if col in agg_df.columns:
+        risk_col = col + "_risk"
+        agg_df[risk_col] = ((agg_df[col] - low) / (high - low)).clip(
+            0, 1
+        )  # Normalize 0-1
+    else:
+        print(f"Warning: Column {col} not found for risk calculation!")
 
 agg_df["safety_score"] = sum(agg_df[col + "_risk"] * w for col, w in WEIGHTS.items())
 agg_df["safety_score"] = (
     agg_df["safety_score"] / sum(WEIGHTS.values())
-) * 100  # scale 0-100
+) * 100  # Scale 0-100
 
 agg_df["safety_score_smooth"] = (
     agg_df.groupby("Device ID")["safety_score"]
@@ -135,10 +156,10 @@ agg_df["safety_score_smooth"] = (
 
 print("Calculated single smoothed safety score per device")
 
-#  save aggregated csv for dashboard / alerts
+# Save aggregated CSV for dashboard / alerts
 agg_df.to_csv(AGG_CSV, index=False)
 print(f"Aggregated CSV saved at {AGG_CSV}")
 
-# debug / sample output
+# Debug / Sample output
 print("\nSample aggregated data with safety score:")
 print(agg_df[["Device ID", "Minute", "safety_score", "safety_score_smooth"]].head())
