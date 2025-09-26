@@ -1,23 +1,31 @@
 import express from "express";
 import { createBot } from "./bots/deviceBot.js";
 import cors from "cors";
-import { createObjectCsvWriter } from 'csv-writer';
-import fs from 'fs';
-import { startProducer, sendToKafka, disconnectProducer } from './kafka/kafkaProducer.js';
-import { NUM_DEVICES, SERVER_PORT } from "./config.js";
+import { createObjectCsvWriter } from "csv-writer";
+import fs from "fs";
+import {
+  startProducer,
+  sendToKafka,
+  disconnectProducer,
+} from "./kafka/kafkaProducer.js";
+import { NUM_DEVICES, SERVER_PORT, SYSTEM_TYPES, THRESHOLDS } from "./config.js";
+import { startConsumer } from "./kafka/kafkaConsumer.js";
 
 const csvWriter = createObjectCsvWriter({
-  path: './sensor_data.csv',
+  path: "./sensor_data.csv",
   header: [
-    { id: 'device_id', title: 'Device ID' },
-    { id: 'timestamp', title: 'Timestamp' },
-    { id: 'temperature', title: 'Temperature (°C)' },
-    { id: 'current', title: 'Current (A)' },
-    { id: 'pressure', title: 'Pressure (hPa)' },
+    { id: "deviceId", title: "Device ID" },      // updated
+    { id: "systemType", title: "System Type" },  // added
+    { id: "timestamp", title: "Timestamp" },
+    { id: "temperature", title: "Temperature (°C)" },
+    { id: "current", title: "Current (A)" },
+    { id: "pressure", title: "Pressure (hPa)" },
+    { id: "alert", title: "Alert" },            // added
   ],
 });
 
-if (!fs.existsSync('./sensor_data.csv')) {
+// Initialize the CSV file if it doesn't exist
+if (!fs.existsSync("./sensor_data.csv")) {
   await csvWriter.writeRecords([]); // create an empty CSV file initially
 }
 
@@ -84,7 +92,26 @@ app.listen(SERVER_PORT, () => {
   console.log(`Server running on http://localhost:${SERVER_PORT}`);
 });
 
-// Start Kafka Producer and bots
+// --- Helper functions for alert checking ---
+function getSystemType(deviceId) {
+  for (const sys of SYSTEM_TYPES) {
+    if (deviceId >= sys.range[0] && deviceId <= sys.range[1]) {
+      return sys.type;
+    }
+  }
+  return "unknown";
+}
+
+function checkThresholds(systemType, reading) {
+  const limits = THRESHOLDS[systemType];
+  return (
+    reading.current > limits.current ||
+    reading.temperature > limits.temperature ||
+    reading.pressure > limits.pressure
+  );
+}
+
+// Start Kafka Producer + Bots
 const initializeKafkaProducer = async () => {
   const producer = await startProducer();
 
@@ -92,12 +119,16 @@ const initializeKafkaProducer = async () => {
     const botStream = createBot(i);
     botStream.on("data", async (reading) => {
       try {
+        const systemType = getSystemType(i);
+        const alert = checkThresholds(systemType, reading);
+
         const fullReading = {
-          device_id: `sensor_${i}`,
+          deviceId: `sensor_${i}`, // consistent with consumer
           timestamp: reading.timestamp, // use bot's timestamp
           temperature: reading.temperature,
           current: reading.current,
           pressure: reading.pressure,
+          alert,                   // true if thresholds exceeded,
           system_type: reading.system_type,
         };
 
@@ -113,8 +144,18 @@ const initializeKafkaProducer = async () => {
         // Append to CSV
         await csvWriter.writeRecords([fullReading]);
 
-        console.log(`Device ${i} data written to CSV and broadcasted`);
-
+        // Log in console
+        if (alert) {
+          console.log(
+            `⚠️ ALERT: Device ${fullReading.deviceId} (${systemType}) exceeded threshold`,
+            fullReading
+          );
+        } else {
+          console.log(
+            `✅ Device ${fullReading.deviceId} data received`,
+            fullReading
+          );
+        }
       } catch (error) {
         console.error(`Error processing data for sensor_${i}:`, error);
       }
@@ -122,16 +163,24 @@ const initializeKafkaProducer = async () => {
   }
 };
 
-initializeKafkaProducer().catch((err) => console.error("Error initializing Kafka Producer", err));
+// Start Kafka Producer + Consumer
+const initializeSystem = async () => {
+  await initializeKafkaProducer();
+  await startConsumer(); // Consumer runs in parallel
+};
 
-// Graceful shutdown
-process.on('SIGINT', async () => {
+initializeSystem().catch((err) =>
+  console.error("Error initializing Kafka system", err)
+);
+
+// Handle graceful shutdown
+process.on("SIGINT", async () => {
   try {
-    await disconnectProducer();
-    console.log('\n👋 Kafka Producer Disconnected. Exiting...');
+    await disconnectProducer(); // Disconnect the Kafka producer
+    console.log("\n👋 Kafka Producer Disconnected. Exiting...");
     process.exit(0);
   } catch (e) {
-    console.error('Error during graceful shutdown', e);
+    console.error("Error during graceful shutdown", e);
     process.exit(1);
   }
 });
