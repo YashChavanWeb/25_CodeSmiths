@@ -1,4 +1,4 @@
-import { botReadings } from "../utils/state.js";
+import { botReadings, initializeDeviceState, deviceStates } from "../utils/state.js";
 import { getSystemType, checkThresholds } from "../utils/botUtils.js";  // Import the function
 import { sendToKafka } from "../kafka/kafkaProducer.js";
 import { createObjectCsvWriter } from "csv-writer";
@@ -24,6 +24,11 @@ const csvWriter = createObjectCsvWriter({
 // Initialize CSV if not exists
 if (!fs.existsSync("./sensor_data.csv")) {
     await csvWriter.writeRecords([]);  // Initialize the CSV with no records if it doesn't exist
+}
+
+// Initialize device states
+for (let i = 1; i <= NUM_DEVICES; i++) {
+    initializeDeviceState(i);
 }
 
 // List of SSE clients
@@ -93,17 +98,31 @@ export const initializeBotStream = (producer) => {
 // Function to handle bot readings (process the data, check thresholds, and send it to Kafka)
 export const handleBotReading = async (reading, i, producer) => {
     try {
+        const deviceId = `device_${i}`;
+        const deviceState = deviceStates.get(deviceId);
         const systemType = getSystemType(i, SYSTEM_TYPES);  // Passing SYSTEM_TYPES as required
-        const alert = checkThresholds(systemType, reading, THRESHOLDS);  // Passing THRESHOLDS as required
+
+        // Check if device is turned off
+        const isDeviceOff = deviceState && deviceState.state === 'off';
+
+        // If device is off, set readings to NaN, otherwise use actual readings
+        const sensorValues = isDeviceOff ? {
+            temperature: NaN,
+            current: NaN,
+            pressure: NaN
+        } : reading;
+
+        const alert = isDeviceOff ? false : checkThresholds(systemType, reading, THRESHOLDS);
 
         const fullReading = {
-            deviceId: `device_${i}`,
+            deviceId,
             systemType,
             timestamp: new Date().toISOString(),
-            temperature: reading.temperature,
-            current: reading.current,
-            pressure: reading.pressure,
+            temperature: sensorValues.temperature,
+            current: sensorValues.current,
+            pressure: sensorValues.pressure,
             alert,
+            state: deviceState ? deviceState.state : 'on'
         };
 
         // Update latest reading in memory
