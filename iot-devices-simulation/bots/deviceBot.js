@@ -8,7 +8,7 @@ function createBot(id) {
 
   function emitReading() {
     const reading = {
-      factory_id: FACTORY_ID,   // ✅ same for all devices
+      factory_id: FACTORY_ID,
       device_id: `sensor_${id}`,
       temperature: +(baseTemp + (Math.random() * 4 - 2)).toFixed(2),
       pressure: +(basePress + (Math.random() * 0.4 - 0.2)).toFixed(2),
