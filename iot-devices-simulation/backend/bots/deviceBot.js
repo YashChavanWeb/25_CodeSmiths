@@ -23,7 +23,7 @@ export function createBot(id) {
   function emitReading() {
     const reading = {
       factory_id: FACTORY_ID,
-      device_id: `sensor_${id}`,
+      device_id: `device_${id}`,
       system_type: systemType,
       temperature: tempSensor.read(),
       pressure: pressureSensor.read(),

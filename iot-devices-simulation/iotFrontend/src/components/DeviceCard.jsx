@@ -44,7 +44,7 @@ export default function DeviceCard({ device }) {
 
       {/* Location */}
       <p className="mt-4 text-xs text-gray-400">
-        📍 Location: <span className="font-medium text-gray-600">{device.location}</span>
+      Location: <span className="font-medium text-gray-600">{device.location}</span>
       </p>
     </div>
   );
