@@ -28,15 +28,23 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-let readings = [];
+let readings = [];      // For POSTed data (existing)
+let botReadings = [];   // For Kafka bot generated data (new)
 
+// POST endpoint to accept sensor data from external clients
 app.post("/api/sensor-data", (req, res) => {
   readings.push(req.body);
   res.status(200).json({ message: "Data received" });
 });
 
+// GET endpoint to return POSTed sensor data
 app.get("/api/sensor-data", (req, res) => {
   res.json(readings);
+});
+
+// NEW GET endpoint to return Kafka bot generated sensor data
+app.get("/api/bot-sensor-data", (req, res) => {
+  res.json(botReadings);
 });
 
 // Start server
@@ -44,26 +52,32 @@ app.listen(SERVER_PORT, () => {
   console.log(`Server running on http://localhost:${SERVER_PORT}`);
 });
 
-// Start Kafka Producer
+// Start Kafka Producer and Kafka bot streams
 const initializeKafkaProducer = async () => {
   const producer = await startProducer();
 
-  // Start bots as streams and send data to Kafka
+  // Start bots as streams and send data to Kafka + CSV + store in botReadings array
   for (let i = 1; i <= NUM_DEVICES; i++) {
     const botStream = createBot(i);
     botStream.on("data", async (reading) => {
       try {
-        // Send the sensor data to Kafka topic
-        await sendToKafka(producer, reading, `sensor_${i}`);
-
-        // Write the received data to the CSV file
-        await csvWriter.writeRecords([{
+        const fullReading = {
           device_id: `sensor_${i}`,
           timestamp: new Date().toISOString(),
           temperature: reading.temperature,
           current: reading.current,
           pressure: reading.pressure
-        }]);
+        };
+
+        // Store in botReadings for frontend consumption
+        botReadings.push(fullReading);
+
+        // Send the sensor data to Kafka topic
+        await sendToKafka(producer, fullReading, `sensor_${i}`);
+
+        // Write the received data to the CSV file
+        await csvWriter.writeRecords([fullReading]);
+
         console.log(`Device ${i} data written to CSV`);
 
       } catch (error) {
@@ -73,7 +87,7 @@ const initializeKafkaProducer = async () => {
   }
 };
 
-// Start Kafka Producer and send data to Kafka + CSV
+// Start Kafka Producer and Kafka bots
 initializeKafkaProducer().catch((err) => console.error("Error initializing Kafka Producer", err));
 
 // Handle graceful shutdown
