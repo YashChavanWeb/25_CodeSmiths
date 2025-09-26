@@ -10,17 +10,18 @@ import {
 } from "./kafka/kafkaProducer.js";
 import { NUM_DEVICES, SERVER_PORT, SYSTEM_TYPES, THRESHOLDS } from "./config.js";
 import { startConsumer } from "./kafka/kafkaConsumer.js";
+import { addExcludedDevice, removeExcludedDevice, excludedDevices } from './utils/deviceControl.js'; // Import control functions
 
 const csvWriter = createObjectCsvWriter({
   path: "./sensor_data.csv",
   header: [
-    { id: "deviceId", title: "Device ID" },      // updated
-    { id: "systemType", title: "System Type" },  // added
+    { id: "deviceId", title: "Device ID" },
+    { id: "systemType", title: "System Type" },
     { id: "timestamp", title: "Timestamp" },
     { id: "temperature", title: "Temperature (°C)" },
     { id: "current", title: "Current (A)" },
     { id: "pressure", title: "Pressure (hPa)" },
-    { id: "alert", title: "Alert" },            // added
+    { id: "alert", title: "Alert" },
   ],
 });
 
@@ -33,8 +34,8 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-let readings = [];      // For POSTed data from external clients
-let botReadings = {};   // Latest reading per device from bots
+let readings = [];
+let botReadings = {};
 
 // Hold all SSE clients here
 const sseClients = new Set();
@@ -50,7 +51,7 @@ app.get("/api/sensor-data", (req, res) => {
   res.json(readings);
 });
 
-// GET latest bot readings as JSON array (for fallback)
+// GET latest bot readings as JSON array
 app.get("/api/bot-sensor-data", (req, res) => {
   res.json(Object.values(botReadings));
 });
@@ -64,15 +65,12 @@ app.get("/api/bot-sensor-stream", (req, res) => {
   });
   res.flushHeaders();
 
-  // Send a comment to keep connection alive every 15 seconds
   const keepAliveInterval = setInterval(() => {
     res.write(`: keep-alive\n\n`);
   }, 15000);
 
-  // Add this client connection to the set
   sseClients.add(res);
 
-  // Remove client when connection closes
   req.on("close", () => {
     clearInterval(keepAliveInterval);
     sseClients.delete(res);
@@ -86,6 +84,34 @@ function broadcastToSSEClients(data) {
     client.write(sseData);
   }
 }
+
+// Endpoint to switch a device on or off
+app.post("/api/device/:id/switch", (req, res) => {
+  const { id } = req.params;
+  const { action } = req.body; // action should be "on" or "off"
+
+  if (action === "off") {
+    // Exclude device
+    if (!excludedDevices.has(Number(id))) {
+      addExcludedDevice(Number(id));
+      return res.status(200).json({ message: `Device ${id} is now excluded (off)` });
+    } else {
+      return res.status(400).json({ message: `Device ${id} is already excluded` });
+    }
+  }
+
+  if (action === "on") {
+    // Include device
+    if (excludedDevices.has(Number(id))) {
+      removeExcludedDevice(Number(id));
+      return res.status(200).json({ message: `Device ${id} is now included (on)` });
+    } else {
+      return res.status(400).json({ message: `Device ${id} is already included` });
+    }
+  }
+
+  return res.status(400).json({ message: 'Invalid action. Use "on" or "off".' });
+});
 
 // Start server
 app.listen(SERVER_PORT, () => {
@@ -123,28 +149,23 @@ const initializeKafkaProducer = async () => {
         const alert = checkThresholds(systemType, reading);
 
         const fullReading = {
-          deviceId: `sensor_${i}`, // consistent with consumer
-          timestamp: reading.timestamp, // use bot's timestamp
+          deviceId: `sensor_${i}`,
+          timestamp: reading.timestamp,
           temperature: reading.temperature,
           current: reading.current,
           pressure: reading.pressure,
-          alert,                   // true if thresholds exceeded,
+          alert,
           system_type: reading.system_type,
         };
 
-        // Update latest reading in memory
-        botReadings[fullReading.device_id] = fullReading;
+        botReadings[fullReading.deviceId] = fullReading;
 
-        // Broadcast via SSE to all connected clients
         broadcastToSSEClients(fullReading);
 
-        // Send to Kafka
         await sendToKafka(producer, fullReading, `sensor_${i}`);
 
-        // Append to CSV
         await csvWriter.writeRecords([fullReading]);
 
-        // Log in console
         if (alert) {
           console.log(
             `⚠️ ALERT: Device ${fullReading.deviceId} (${systemType}) exceeded threshold`,
@@ -166,7 +187,7 @@ const initializeKafkaProducer = async () => {
 // Start Kafka Producer + Consumer
 const initializeSystem = async () => {
   await initializeKafkaProducer();
-  await startConsumer(); // Consumer runs in parallel
+  await startConsumer();
 };
 
 initializeSystem().catch((err) =>
@@ -176,7 +197,7 @@ initializeSystem().catch((err) =>
 // Handle graceful shutdown
 process.on("SIGINT", async () => {
   try {
-    await disconnectProducer(); // Disconnect the Kafka producer
+    await disconnectProducer();
     console.log("\n👋 Kafka Producer Disconnected. Exiting...");
     process.exit(0);
   } catch (e) {
