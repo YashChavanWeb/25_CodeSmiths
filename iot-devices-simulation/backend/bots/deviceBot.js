@@ -1,23 +1,28 @@
 const { log } = require("../utils/logger");
 const { MIN_INTERVAL, MAX_INTERVAL, FACTORY_ID } = require("../config");
+const TemperatureSensor = require("../sensors/TemperatureSensor");
+const PressureSensor = require("../sensors/PressureSensor");
+const CurrentSensor = require("../sensors/CurrentSensor");
 
 function createBot(id) {
-  const baseTemp = 30 + Math.random() * 50;
-  const basePress = 2 + Math.random() * 6;
-  const baseCurr = 5 + Math.random() * 10;
+  const tempSensor = new TemperatureSensor();
+  const pressureSensor = new PressureSensor();
+  const currentSensor = new CurrentSensor();
 
   function emitReading() {
     const reading = {
       factory_id: FACTORY_ID,
       device_id: `sensor_${id}`,
-      temperature: +(baseTemp + (Math.random() * 4 - 2)).toFixed(2),
-      pressure: +(basePress + (Math.random() * 0.4 - 0.2)).toFixed(2),
-      current: +(baseCurr + (Math.random() * 2 - 1)).toFixed(2),
+      temperature: tempSensor.read(),
+      pressure: pressureSensor.read(),
+      current: currentSensor.read(),
       timestamp: new Date().toISOString()
     };
 
+    // DEBUG logs
     log(`sensor_${id}`, "Generated reading:", reading);
 
+    // send reading to backend
     const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
     fetch("http://localhost:5000/api/sensor-data", {
