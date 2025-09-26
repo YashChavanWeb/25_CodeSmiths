@@ -47,15 +47,12 @@ app.get("/api/bot-sensor-data", (req, res) => {
   res.json(Object.values(botReadings));
 });
 
-for (let i = 1; i <= NUM_DEVICES; i++) {
-  const botStream = createBot(i);
-  botStream.on("data", (reading) => {
-    fetch(`http://localhost:${SERVER_PORT}/api/sensor-data`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(reading)
-    }).catch(err => log(`sensor_${i}`, "Error sending data:", err));
-
+// SSE endpoint for live bot sensor data streaming
+app.get("/api/bot-sensor-stream", (req, res) => {
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
   });
   res.flushHeaders();
 
