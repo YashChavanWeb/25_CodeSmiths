@@ -7,7 +7,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchDevices = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/bot-sensor-data");
+        const res = await fetch("http://localhost:5000/api/sensor-data");
         const data = await res.json();
 
         // Transform backend data to match DeviceCard format
