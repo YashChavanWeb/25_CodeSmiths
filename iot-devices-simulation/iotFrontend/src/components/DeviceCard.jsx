@@ -25,7 +25,7 @@ export default function DeviceCard({ device }) {
       <p className="text-sm text-gray-500 italic">{device.device_type}</p>
 
       
-      <div className="mt-4 grid grid-row-3 gap-3 text-[0.6em]">
+      <div className="mt-4 grid grid-row-3 gap-3 text-sm">
         <div className="bg-white px-3 py-1 rounded-full border shadow-sm flex flex-row justify-between">
           <Zap className="w-4 h-4 text-indigo-500 mb-1" />
           <p className="font-semibold">
