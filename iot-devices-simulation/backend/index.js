@@ -12,6 +12,7 @@ import { NUM_DEVICES, SERVER_PORT, SYSTEM_TYPES, THRESHOLDS } from "./config.js"
 import { startConsumer } from "./kafka/kafkaConsumer.js";
 
 // CSV Writer setup
+// CSV Writer setup
 const csvWriter = createObjectCsvWriter({
   path: "./sensor_data.csv",
   header: [
