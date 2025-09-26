@@ -28,8 +28,8 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-let readings = [];      // For POSTed data (existing)
-let botReadings = [];   // For Kafka bot generated data (new)
+let readings = [];      // For POSTed data from external clients
+let botReadings = {};   // Store latest reading per device from Kafka bots
 
 // POST endpoint to accept sensor data from external clients
 app.post("/api/sensor-data", (req, res) => {
@@ -42,9 +42,10 @@ app.get("/api/sensor-data", (req, res) => {
   res.json(readings);
 });
 
-// NEW GET endpoint to return Kafka bot generated sensor data
+// NEW GET endpoint to return latest Kafka bot generated sensor data
 app.get("/api/bot-sensor-data", (req, res) => {
-  res.json(botReadings);
+  // Send only the latest reading per device as an array
+  res.json(Object.values(botReadings));
 });
 
 // Start server
@@ -56,7 +57,7 @@ app.listen(SERVER_PORT, () => {
 const initializeKafkaProducer = async () => {
   const producer = await startProducer();
 
-  // Start bots as streams and send data to Kafka + CSV + store in botReadings array
+  // Start bots as streams and send data to Kafka + CSV + store latest in botReadings
   for (let i = 1; i <= NUM_DEVICES; i++) {
     const botStream = createBot(i);
     botStream.on("data", async (reading) => {
@@ -69,8 +70,8 @@ const initializeKafkaProducer = async () => {
           pressure: reading.pressure
         };
 
-        // Store in botReadings for frontend consumption
-        botReadings.push(fullReading);
+        // Update the latest reading for this device (replace previous)
+        botReadings[fullReading.device_id] = fullReading;
 
         // Send the sensor data to Kafka topic
         await sendToKafka(producer, fullReading, `sensor_${i}`);
