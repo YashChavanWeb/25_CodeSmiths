@@ -1,3 +1,4 @@
+
 export const NUM_DEVICES = 50;
 export const MIN_INTERVAL = 500;
 export const MAX_INTERVAL = 2000;
