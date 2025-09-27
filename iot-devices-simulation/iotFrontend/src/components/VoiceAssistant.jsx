@@ -42,7 +42,7 @@ export default function VoiceAssistant({ devices, toggleDevice, setCategory }) {
           speak(`Device number ${turnOnMatch[2]} turned on.`);
         } else if (turnBackOnMatch) {
           const deviceId = `device_${turnBackOnMatch[2]}`;
-          const device = devices.find(d => d.id === deviceId);
+          const device = devices.find(d => d.device_id === deviceId);
 
           if (device && device.status === "off") {
             toggleDevice(deviceId, "on");
@@ -71,6 +71,20 @@ export default function VoiceAssistant({ devices, toggleDevice, setCategory }) {
             }
           }
           speak(response);
+        }
+
+        // --- Devices that are turned off ---
+        else if (command.includes("which devices are turned off")) {
+          const turnedOffDevices = devices
+            .filter(d => !d.is_on)
+            .map(d => d.device_id.replace("device_", "")) // Extract device ID (e.g., 12, 38)
+            .join(", "); // Join the device IDs with a comma
+
+          if (turnedOffDevices) {
+            speak(`The following devices are turned off: ${turnedOffDevices}`);
+          } else {
+            speak("All devices are currently on.");
+          }
         }
 
         // --- Display/Filter Commands ---
