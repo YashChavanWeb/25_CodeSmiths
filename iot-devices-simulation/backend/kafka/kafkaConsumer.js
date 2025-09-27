@@ -1,5 +1,6 @@
 import { Kafka } from "kafkajs";
 import { KAFKA_BROKER, KAFKA_TOPIC } from "../config.js";
+import { addAlert } from "../utils/alertStore.js";
 
 // Kafka Setup
 const kafka = new Kafka({
@@ -21,17 +22,23 @@ export const startConsumer = async () => {
         const value = message.value.toString();
         const data = JSON.parse(value);
 
-        if (data.alert) {
-          console.log(
-            `ALERT DETECTED: Device ${data.deviceId} (${data.systemType}) exceeded threshold`,
-            {
-              current: data.current,
-              temperature: data.temperature,
-              pressure: data.pressure,
-              time: data.timestamp,
-            }
-          );
-        } else {
+       if (data.alert) {
+  const alertData = {
+    deviceId: data.deviceId,
+    systemType: data.systemType,
+    message: `Device ${data.deviceId} (${data.systemType}) exceeded threshold`,
+    temperature: data.temperature,
+    current: data.current,
+    pressure: data.pressure,
+    timestamp: data.timestamp
+  };
+
+  console.log("ALERT:", alertData);
+
+  addAlert(alertData); 
+}
+        
+        else {
           console.log(
             `Device ${data.deviceId} data received`,
             {
