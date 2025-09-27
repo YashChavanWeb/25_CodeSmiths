@@ -105,15 +105,15 @@ export const switchDeviceStateHandler = (req, res) => {
 
     // Validate input
     if (!deviceId || !action) {
-        return res.status(400).json({ 
-            message: "Missing required fields. Please provide deviceId and action" 
+        return res.status(400).json({
+            message: "Missing required fields. Please provide deviceId and action"
         });
     }
 
     // Validate action
     if (action !== 'on' && action !== 'off') {
-        return res.status(400).json({ 
-            message: "Invalid action. Must be either 'on' or 'off'" 
+        return res.status(400).json({
+            message: "Invalid action. Must be either 'on' or 'off'"
         });
     }
 
