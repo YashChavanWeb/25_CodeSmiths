@@ -31,6 +31,7 @@ CLEAN_COL_ORDER = [
     "Power (W)",
     "Temp_Rate",
     "Timestamp_IST",
+    "Status",  # Added Status column here
 ]
 
 AGG_COL_ORDER = (
@@ -51,6 +52,7 @@ AGG_COL_ORDER = (
         "power_roll_min",
         "safety_score",
         "safety_score_smooth",
+        "Status",  # Added Status column here
     ]
     + [f"{col}_risk" for col in AGG_METRICS.keys()]
     + [f"{col}_anomaly" for col in AGG_METRICS.keys()]
@@ -99,6 +101,11 @@ def clean_data(df_chunk):
     # Convert to IST
     df_chunk["Timestamp_IST"] = df_chunk["Timestamp"].dt.tz_convert("Asia/Kolkata")
 
+    # Ensure Status is preserved and filled forward within each device group
+    df_chunk["Status"] = (
+        df_chunk.groupby("Device ID")["Status"].fillna(method="ffill").fillna("On")
+    )
+
     # Reorder + ensure all columns exist
     for col in CLEAN_COL_ORDER:
         if col not in df_chunk.columns:
@@ -114,6 +121,7 @@ def aggregate_data(df_chunk):
 
     df_chunk["Minute"] = df_chunk["Timestamp_IST"].dt.floor("min")
 
+    # Aggregate data
     agg_df = (
         df_chunk.groupby(["Device ID", "Minute"])
         .agg(
@@ -122,6 +130,11 @@ def aggregate_data(df_chunk):
             max_pressure=("Pressure (hPa)", "max"),
             total_power=("Power (W)", "sum"),
             avg_temp_rate=("Temp_Rate", "mean"),
+            # Add Status (most common status within the minute)
+            Status=(
+                "Status",
+                lambda x: x.mode().iloc[0] if not x.empty else "On",
+            ),  # Take the most frequent status in the minute interval
         )
         .reset_index()
     )
@@ -239,19 +252,17 @@ def main_loop(poll_interval=5):
 
                     write_csv_with_header(clumped_agg_df, AGG_CSV)
                     existing_minutes.update(zip(agg_df["Device ID"], agg_df["Minute"]))
-                    print(f"Updated aggregated CSV with {len(clumped_agg_df)} new rows")
 
         except Exception as e:
             print(f"Error during processing: {e}")
+            time.sleep(poll_interval)
+            continue
 
+        # Update last processed row count
         last_row_count = len(df)
         time.sleep(poll_interval)
 
 
+# Start the main loop
 if __name__ == "__main__":
-    try:
-        main_loop()
-    except KeyboardInterrupt:
-        print("\nStopped by user")
-    except Exception as e:
-        print(f"Error in main loop: {e}")
+    main_loop()

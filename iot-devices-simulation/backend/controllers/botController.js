@@ -19,6 +19,7 @@ const csvWriter = createObjectCsvWriter({
         { id: "current", title: "Current (A)" },
         { id: "pressure", title: "Pressure (hPa)" },
         { id: "alert", title: "Alert" },
+        { id: "status", title: "Status" },
     ],
 });
 
@@ -98,6 +99,9 @@ export const initializeBotStream = (producer) => {
 
 // Function to handle bot readings (process the data, check thresholds, and send it to Kafka)
 export const handleBotReading = async (reading, i, producer) => {
+    // Determine device status based on readings
+    const isAllNaN = [reading.temperature, reading.current, reading.pressure].every(val => isNaN(val));
+    reading.status = isAllNaN ? 'off' : 'on';
     try {
         const deviceId = `device_${i}`;
         const deviceState = deviceStates.get(deviceId);
@@ -121,6 +125,10 @@ export const handleBotReading = async (reading, i, producer) => {
 
         const alert = isDeviceOff ? false : checkThresholds(systemType, reading, THRESHOLDS);
 
+        // Check if all sensor values are NaN to determine status
+        const isAllNaN = [sensorValues.temperature, sensorValues.current, sensorValues.pressure]
+            .every(val => isNaN(val));
+
         const fullReading = {
             deviceId,
             systemType,
@@ -129,7 +137,7 @@ export const handleBotReading = async (reading, i, producer) => {
             current: sensorValues.current,
             pressure: sensorValues.pressure,
             alert,
-            state: deviceState ? deviceState.state : 'on'
+            status: isAllNaN ? 'Off' : 'On' // Set status based on sensor values
         };
 
         // Update latest reading in memory
