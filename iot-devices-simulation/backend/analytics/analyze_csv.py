@@ -1,12 +1,48 @@
+from kafka import KafkaConsumer
 import pandas as pd
+import json
 import numpy as np
 from sklearn.ensemble import IsolationForest
 
-# Load CSV
-df = pd.read_csv("../sensor_data.csv")
+# Kafka consumer
+consumer = KafkaConsumer(
+    'sensor-data',
+    bootstrap_servers='localhost:9092',
+    auto_offset_reset='earliest',  # Read from beginning
+    enable_auto_commit=True,
+    group_id='analytics-group',
+    value_deserializer=lambda x: json.loads(x.decode('utf-8'))
+)
+
+# Collect messages into a list
+data_list = []
+
+print("Fetching messages from Kafka...")
+for message in consumer:
+    data_list.append(message.value)
+    
+    # Optional: break after N messages if needed
+    if len(data_list) >= 1000:
+        break
+
+# Convert to DataFrame
+df = pd.DataFrame(data_list)
 
 # Convert timestamp
-df["Timestamp"] = pd.to_datetime(df["Timestamp"])
+df["timestamp"] = pd.to_datetime(df["timestamp"])
+
+# Rename columns to match your previous CSV-based script
+df.rename(columns={
+    "deviceId": "Device ID",
+    "temperature": "Temperature (°C)",
+    "current": "Current (A)",
+    "pressure": "Pressure (hPa)",
+    "alert": "Alert"
+}, inplace=True)
+
+# ----------------------------
+# Your existing analysis below
+# ----------------------------
 
 # Overview
 print("\n--- Data Overview ---")
@@ -26,31 +62,18 @@ alerts_per_device = df.groupby("Device ID")["Alert"].sum()
 print("\n--- Alerts per Device ---")
 print(alerts_per_device)
 
-# --------------------------------------
-# ANOMALY DETECTION
-# --------------------------------------
-
-# Initialize Isolation Forest model for anomaly detection
-anomaly_detector = IsolationForest(n_estimators=100, contamination=0.05)  # 5% of the data is expected to be anomalous
+# Anomaly Detection
+anomaly_detector = IsolationForest(n_estimators=100, contamination=0.05)
 features = ["Current (A)", "Temperature (°C)", "Pressure (hPa)"]
-
-# Train anomaly detector on the data
 device_data = df[features]
 anomalies = anomaly_detector.fit_predict(device_data)
-
-# Add anomaly column to the dataframe (-1 is anomalous, 1 is normal)
 df["Anomaly"] = anomalies
 df_anomalies = df[df["Anomaly"] == -1]
-
 print("\n--- Anomalies Detected ---")
 print(df_anomalies)
 
-# -------------------
-# ALERTS & OPTIMIZATION LOGIC
-# -------------------
-
+# Optimization & Alerts
 print("\n--- Optimization Suggestions & Alerts ---")
-
 suggestions = []
 
 for device in device_stats.index:
@@ -59,26 +82,16 @@ for device in device_stats.index:
     alerts = alerts_per_device.get(device, 0)
     is_anomalous = df[df["Device ID"] == device]["Anomaly"].any()
 
-    # Rule 1: Too many alerts → maintenance
     if alerts > 20:
         suggestions.append(f"{device}: High alert count ({alerts}) → Recommend maintenance.")
-
-    # Rule 2: Low usage → turn off
     elif avg_current < 4.5:
         suggestions.append(f"{device}: Low current usage ({avg_current:.2f}A) → Consider turning off when not needed.")
-
-    # Rule 3: High temperature → check cooling
     elif avg_temp > 30:
-        suggestions.append(f"{device}:  High average temperature ({avg_temp:.2f}°C) → Check cooling system.")
-
-    # Rule 4: Anomalous behavior detected
+        suggestions.append(f"{device}: High average temperature ({avg_temp:.2f}°C) → Check cooling system.")
     elif is_anomalous:
         suggestions.append(f"{device}: Anomalous behavior detected → Investigate further.")
-
-    # Otherwise normal
     else:
-        suggestions.append(f"{device}:  Operating normally.")
+        suggestions.append(f"{device}: Operating normally.")
 
-# Output optimization suggestions
 for s in suggestions:
     print(s)
