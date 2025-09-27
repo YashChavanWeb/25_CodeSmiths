@@ -4,22 +4,26 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer
 } from "recharts";
 import ChartCard from "./ChartCard";
+import DeviceBinaryStatus from "./DeviceBinaryStatus";
 
-export default function DeviceInsights({ data, selectedDevice, setSelectedDevice }) {
-  if (!data || !selectedDevice) return null;
+export default function DeviceInsights({ data, cleanData, selectedDevice }) {
+  if (!data || !selectedDevice || !cleanData) return null;
 
-  const devices = [...new Set(data.map((row) => row["Device ID"]))];
-  const deviceData = data.filter((row) => row["Device ID"] === selectedDevice);
-  if (!deviceData.length) return <p>No data for this device.</p>;
+  // Filter device-specific data
+  const deviceDataAgg = data.filter((row) => row["Device ID"] === selectedDevice);
+  const deviceDataClean = cleanData.filter((row) => row["Device ID"] === selectedDevice);
 
-  const latest = deviceData[deviceData.length - 1];
+  if (!deviceDataAgg.length || !deviceDataClean.length) return <p>No data for this device.</p>;
+
+  const latest = deviceDataAgg[deviceDataAgg.length - 1];
+
   const pieData = [
     { name: "Power", value: latest.total_power },
     { name: "Safety Score", value: latest.safety_score },
   ];
   const COLORS = ["#16a34a", "#dc2626"];
 
-  const radarData = deviceData.slice(-10).map((row) => ({
+  const radarData = deviceDataAgg.slice(-10).map((row) => ({
     Minute: row.Minute,
     Safety: row.safety_score,
     Power: row.total_power,
@@ -27,9 +31,11 @@ export default function DeviceInsights({ data, selectedDevice, setSelectedDevice
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+      {/* Power Trend */}
       <ChartCard title="Power Trend">
         <ResponsiveContainer width="100%" height={250}>
-          <LineChart data={deviceData}>
+          <LineChart data={deviceDataAgg}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="Minute" />
             <YAxis />
@@ -41,7 +47,7 @@ export default function DeviceInsights({ data, selectedDevice, setSelectedDevice
                       <p><strong>Minute:</strong> {label}</p>
                       {payload.map((pl) => (
                         <p key={pl.dataKey}>
-                          {pl.name}: {pl.value} <span className="text-gray-500">({pl.payload["Device ID"]})</span>
+                          {pl.name}: {pl.value.toFixed(2)} <span className="text-gray-500">({pl.payload["Device ID"]})</span>
                         </p>
                       ))}
                     </div>
@@ -56,7 +62,13 @@ export default function DeviceInsights({ data, selectedDevice, setSelectedDevice
         </ResponsiveContainer>
       </ChartCard>
 
-      {/* <ChartCard title="Safety Profile (Radar)">
+      {/* Device ON/OFF Status */}
+      <ChartCard title="Device ON/OFF Status">
+        <DeviceBinaryStatus data={deviceDataClean} />
+      </ChartCard>
+
+      {/* Optional: Radar chart for recent Safety/Power */}
+      <ChartCard title="Safety & Power (Last 10)">
         <ResponsiveContainer width="100%" height={250}>
           <RadarChart outerRadius={80} data={radarData}>
             <PolarGrid />
@@ -67,21 +79,30 @@ export default function DeviceInsights({ data, selectedDevice, setSelectedDevice
             <Legend />
           </RadarChart>
         </ResponsiveContainer>
-      </ChartCard> */}
+      </ChartCard>
 
-      
-
+      {/* Optional: Power vs Safety Pie */}
       <ChartCard title="Power vs Safety (Latest)">
         <ResponsiveContainer width="100%" height={250}>
           <PieChart>
-            <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+            <Pie
+              data={pieData}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              outerRadius={80}
+              label
+            >
               {pieData.map((entry, index) => (
-                <Cell key={index} fill={COLORS[index]} />
+                <Cell key={index} fill={COLORS[index % COLORS.length]} />
               ))}
             </Pie>
+            <Tooltip formatter={(value) => value.toFixed(2)} />
           </PieChart>
         </ResponsiveContainer>
       </ChartCard>
+
     </div>
   );
 }

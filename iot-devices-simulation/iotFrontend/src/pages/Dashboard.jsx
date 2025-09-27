@@ -7,13 +7,17 @@ import AvgStatsChart from "../components/Dashboard/AvgStatsChart";
 import DeviceMetricsChart from "../components/Dashboard/DeviceMetricsChart";
 import SafetyGauge from "../components/Dashboard/SafetyGauge";
 import DeviceInsights from "../components/Dashboard/DeviceInsights";
+import HighConsumptionChart from "../components/Dashboard/HighConsumptionChart"; // new
+import AnomaliesChart from "../components/Dashboard/AnomaliesChart"; // new
+import AlertsTable from "../components/Dashboard/AlertsTable";
+
 
 export default function Dashboard() {
   const [aggregated, setAggregated] = useState([]);
   const [cleaned, setCleaned] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState("");
 
-  // SSE for live device data
+  // Parse CSVs
   useEffect(() => {
     const parseAgg = (row) => ({
       ...row,
@@ -30,6 +34,8 @@ export default function Dashboard() {
       "Current (A)": Number(row["Current (A)"]),
       "Pressure (hPa)": Number(row["Pressure (hPa)"]),
       "Power (W)": Number(row["Power (W)"]),
+      Alert: row.Alert === "true" || row.Alert === true,
+      Anomaly: row.Anomaly === "-1" || row.Anomaly === -1,
     });
 
     Papa.parse("/sensor_data_aggregated.csv", {
@@ -49,6 +55,7 @@ export default function Dashboard() {
 
   const devices = [...new Set(aggregated.map((row) => row["Device ID"]))];
 
+  // Selected device data
   const aggData = selectedDevice
     ? aggregated.filter((r) => r["Device ID"] === selectedDevice)
     : aggregated;
@@ -56,6 +63,20 @@ export default function Dashboard() {
   const cleanData = selectedDevice
     ? cleaned.filter((r) => r["Device ID"] === selectedDevice)
     : cleaned;
+
+  // Factory-wide analytics
+  const anomalies = cleaned.filter((row) => row.Alert || row.Anomaly);
+
+  const highConsumptionDevices = [...new Set(cleaned.map((r) => r["Device ID"]))]
+    .map((id) => {
+      const devData = cleaned.filter((d) => d["Device ID"] === id);
+      const avgPower =
+        devData.reduce((acc, d) => acc + d["Power (W)"], 0) / devData.length / 1000; // kW
+
+      return { id, avgPower };
+    })
+    .sort((a, b) => b.avgPower - a.avgPower)
+    .slice(0, 5); // Top 5 devices by consumption
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
@@ -78,29 +99,36 @@ export default function Dashboard() {
 
       {/* Main */}
       <main className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 mt-14">
-        {/* Left Section: Aggregated Overview */}
-        <section>
-            <ChartCard title="Average Device Stats">
-              <AvgStatsChart data={cleanData} />
-            </ChartCard>
+        {/* Left Section: Factory-wide analytics */}
+        <section className="space-y-6">
+          <ChartCard title="Average Device Stats">
+            <AvgStatsChart data={cleanData} />
+          </ChartCard>
+
           <ChartCard title="Power Consumption (Aggregated)">
             <PowerTrendChart data={aggData} />
           </ChartCard>
 
-
-
           <ChartCard title="Safety Profile (Aggregated)">
-            <SafetyScoreChart
-              data={selectedDevice ? aggregated.filter(r => r["Device ID"] === selectedDevice) : aggData}
-            />
+            <SafetyScoreChart data={aggData} />
           </ChartCard>
 
+          <ChartCard title="Top 5 High Consumption Devices">
+            <HighConsumptionChart data={highConsumptionDevices} />
+          </ChartCard>
+
+          <ChartCard title="Anomalies Overview">
+            <AnomaliesChart data={anomalies} />
+          </ChartCard>
+
+          <ChartCard title="Last 10 Alerts">
+            <AlertsTable data={cleaned} />
+          </ChartCard>
 
         </section>
 
-        {/* Right Section: Device Insights */}
+        {/* Right Section: Single Device Insights */}
         <section className="space-y-6">
-          {/* Device Dropdown (always visible) */}
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-gray-800">Device Insights</h2>
             <select
@@ -109,35 +137,37 @@ export default function Dashboard() {
               onChange={(e) => setSelectedDevice(e.target.value)}
             >
               <option value="">Select Device</option>
-              {[...new Set(aggregated.map((row) => row["Device ID"]))].map((d) => (
-                <option key={d} value={d}>{d}</option>
+              {devices.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
               ))}
             </select>
           </div>
-
-          {/* Charts for selected device */}
           {selectedDevice && (
             <>
-
               <ChartCard title={`Device Metrics - ${selectedDevice}`}>
-                <DeviceMetricsChart data={cleaned.filter((r) => r["Device ID"] === selectedDevice)} />
+                <DeviceMetricsChart
+                  data={cleaned.filter((r) => r["Device ID"] === selectedDevice)}
+                />
               </ChartCard>
 
               <DeviceInsights
-                data={aggregated}
+                data={cleaned}       // <-- Pass cleaned data here
                 selectedDevice={selectedDevice}
                 setSelectedDevice={setSelectedDevice}
               />
+
               <ChartCard title="Safety Score">
-                <SafetyGauge data={aggregated.filter((r) => r["Device ID"] === selectedDevice)} />
+                <SafetyGauge
+                  data={cleaned.filter((r) => r["Device ID"] === selectedDevice)}
+                />
               </ChartCard>
             </>
           )}
-        </section>
 
+        </section>
       </main>
     </div>
   );
-}
-
 }
