@@ -1,5 +1,5 @@
 import { deviceStates, readings, initializeDeviceState, startFailure, FAILURE_DURATION, GP_RATIO } from "../utils/state.js";
-import { switchDeviceState, addFieldExclusion, removeFieldExclusion, excludedDevices, getFieldExclusions, fieldExclusions } from "../utils/deviceControl.js"; // import from deviceControl.js
+import { switchDeviceState, addFieldExclusion, removeFieldExclusion, excludedDevices, getFieldExclusions, fieldExclusions } from "../utils/deviceControl.js"; 
 
 // POST endpoint for external sensor data
 export const postSensorData = (req, res) => {
@@ -25,7 +25,6 @@ export const getSensorData = (req, res) => {
     res.json(readings);
 };
 
-// POST endpoint to switch device state
 
 // POST endpoint to simulate system failure
 export const simulateFailure = (req, res) => {

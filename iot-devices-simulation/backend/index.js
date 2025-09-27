@@ -7,6 +7,7 @@ import deviceRoutes from "./routes/deviceRoutes.js";
 import botRoutes from "./routes/botRoutes.js";
 import { initializeBotStream } from "./controllers/botController.js";
 import { botReadings } from "./utils/state.js"; // Import botReadings from state.js
+import alertRoutes from "./routes/alertRoutes.js";
 
 const app = express();
 app.use(express.json());
@@ -14,6 +15,9 @@ app.use(cors());
 
 app.use("/api", deviceRoutes);
 app.use("/api", botRoutes);
+
+
+app.use("/api", alertRoutes);
 
 // Initialize system (Kafka, bots)
 const initializeSystem = async () => {
