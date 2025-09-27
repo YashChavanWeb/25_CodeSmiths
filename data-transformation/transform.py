@@ -1,9 +1,9 @@
 import pandas as pd
 import os
 import json
-import time
 from kafka import KafkaConsumer
 import json as js
+import time
 
 # ---------------- Paths ----------------
 CLEAN_CSV = "./sensor_data_cleaned.csv"
@@ -29,6 +29,7 @@ CLEAN_COL_ORDER = [
     "Current (A)",
     "Pressure (hPa)",
     "Alert",
+    "Status",  # Add Status column
     "Power (W)",
     "Temp_Rate",
     "Timestamp_IST",
@@ -52,16 +53,19 @@ AGG_COL_ORDER = (
         "power_roll_min",
         "safety_score",
         "safety_score_smooth",
+        "Status",  # Add Status column
     ]
     + [f"{col}_risk" for col in AGG_METRICS.keys()]
     + [f"{col}_anomaly" for col in AGG_METRICS.keys()]
 )
+
 
 # ---------------- Helper Function ----------------
 def write_csv_with_header(df, filepath):
     """Append to CSV, ensure header exists if file is missing or empty."""
     write_header = not os.path.exists(filepath) or os.path.getsize(filepath) == 0
     df.to_csv(filepath, index=False, mode="a", header=write_header)
+
 
 # ---------------- Functions ----------------
 def clean_data(df_chunk):
@@ -91,7 +95,29 @@ def clean_data(df_chunk):
     )
     df_chunk["Temp_Rate"] = df_chunk["Temp_Rate"].fillna(0)
     df_chunk["Timestamp_IST"] = df_chunk["Timestamp"].dt.tz_convert("Asia/Kolkata")
-    return df_chunk
+
+    # Handle Status field
+    if "Status" not in df_chunk.columns:
+        # If all sensor values are NaN, status is Off, otherwise On
+        df_chunk["Status"] = df_chunk.apply(
+            lambda row: (
+                "Off"
+                if all(
+                    pd.isna(row[col])
+                    for col in ["Temperature (°C)", "Current (A)", "Pressure (hPa)"]
+                )
+                else "On"
+            ),
+            axis=1,
+        )
+
+    # Ensure all required columns are present
+    for col in CLEAN_COL_ORDER:
+        if col not in df_chunk.columns:
+            df_chunk[col] = None
+
+    # Return dataframe with correct column order
+    return df_chunk[CLEAN_COL_ORDER]
 
 
 def aggregate_data(df_chunk):
@@ -107,6 +133,10 @@ def aggregate_data(df_chunk):
             max_pressure=("Pressure (hPa)", "max"),
             total_power=("Power (W)", "sum"),
             avg_temp_rate=("Temp_Rate", "mean"),
+            Status=(
+                "Status",
+                "last",
+            ),  # Preserve the last status in the minute interval
         )
         .reset_index()
     )
@@ -176,12 +206,12 @@ def main_loop(poll_interval=5):
 
     # ---------------- Kafka Consumer ----------------
     consumer = KafkaConsumer(
-        'sensor-data',
-        bootstrap_servers='localhost:9092',
-        auto_offset_reset='earliest',
+        "sensor-data",
+        bootstrap_servers="localhost:9092",
+        auto_offset_reset="earliest",
         enable_auto_commit=True,
-        group_id='analytics-group',
-        value_deserializer=lambda x: js.loads(x.decode('utf-8'))
+        group_id="analytics-group",
+        value_deserializer=lambda x: js.loads(x.decode("utf-8")),
     )
 
     buffer = []
@@ -205,6 +235,7 @@ def main_loop(poll_interval=5):
                             "pressure": "Pressure (hPa)",
                             "alert": "Alert",
                             "timestamp": "Timestamp",
+                            "status": "Status",  # Add status field mapping
                         },
                         inplace=True,
                     )
@@ -222,9 +253,9 @@ def main_loop(poll_interval=5):
                         agg_df["Device_Minute"] = list(
                             zip(agg_df["Device ID"], agg_df["Minute"])
                         )
-                        agg_df = agg_df[~agg_df["Device_Minute"].isin(existing_minutes)].drop(
-                            columns=["Device_Minute"]
-                        )
+                        agg_df = agg_df[
+                            ~agg_df["Device_Minute"].isin(existing_minutes)
+                        ].drop(columns=["Device_Minute"])
 
                         if not agg_df.empty:
                             chunk_size = max(1, len(agg_df) // 10)
@@ -236,8 +267,12 @@ def main_loop(poll_interval=5):
                             ).reset_index(drop=True)
 
                             write_csv_with_header(clumped_agg_df, AGG_CSV)
-                            existing_minutes.update(zip(agg_df["Device ID"], agg_df["Minute"]))
-                            print(f"Updated aggregated CSV with {len(clumped_agg_df)} new rows")
+                            existing_minutes.update(
+                                zip(agg_df["Device ID"], agg_df["Minute"])
+                            )
+                            print(
+                                f"Updated aggregated CSV with {len(clumped_agg_df)} new rows"
+                            )
 
         except KeyboardInterrupt:
             print("\nStopped by user")
