@@ -1,3 +1,61 @@
+### **README.md**
+
+```markdown
+# IoT Sensor Data Transformation
+
+This project cleans, aggregates, and computes safety metrics from IoT device sensor data for industrial monitoring.
+
+## Features
+- Removes duplicates and fills missing numeric values.
+- Handles outliers while keeping real anomalies for safety monitoring.
+- Calculates derived metrics:
+  - Power (W) from current
+  - Temperature change rate (Temp_Rate)
+- Converts timestamps to IST for local dashboard visualization.
+- Aggregates data per minute for smoother trends.
+- Applies rolling average smoothing to reduce noise.
+- Flags unsafe readings based on configurable thresholds.
+- Computes a single weighted **Safety Score** per device for quick monitoring.
+- Rolling min/max statistics for trend analysis.
+
+## Configurable Parameters
+All thresholds, weights, numeric columns, and smoothing windows are in `metrics_config.json` for easy adjustments without changing code.
+
+## File Structure
+```
+
+data-transformation/
+├─ transform.py        # Main transformation script
+├─ metrics_config.json # Thresholds, weights, rolling window
+├─ transformed_data/   # Optional folder to save cleaned/aggregated CSVs
+├─ sensor_data_cleaned.csv
+├─ sensor_data_aggregated.csv
+
+````
+
+## How to Use
+1. Place raw sensor CSV at `../iot-devices-simulation/backend/sensor_data.csv`
+2. Adjust thresholds/weights in `metrics_config.json` if needed.
+3. Run the script:
+```bash
+python transform.py
+````
+
+4. Outputs:
+
+   * Cleaned CSV: `sensor_data_cleaned.csv`
+   * Aggregated CSV with safety score: `sensor_data_aggregated.csv`
+
+## Notes
+
+* The script keeps real anomalies to ensure safety monitoring is accurate.
+* Rolling averages and per-minute aggregation reduce noise while preserving important trends.
+
+```
+
+
+---
+
 Turn on docker desktop
 
 1. zookeeper installation

@@ -30,4 +30,13 @@ export const THRESHOLDS = {
     temperature: 60,
     pressure: 120
   }
+
+  
+};
+
+
+export const SCHEDULING_RULES = {
+  idleMargin: 0.2,       // <20% of threshold = idle → turn off
+  highLoadMargin: 0.8,   // >80% of threshold = high load → rotate/stagger
+  coolingMargin: 0.85,   // >85% of temp threshold = cooling breaks
 };

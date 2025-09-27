@@ -1,9 +1,21 @@
 import pandas as pd
+import numpy as np
+import json
+from sklearn.ensemble import IsolationForest
 
-# Load CSV
+# -------------------------
+# Load Config (Thresholds + Rules)
+# -------------------------
+with open("../config.json", "r") as f:
+    config = json.load(f)
+
+THRESHOLDS = config["THRESHOLDS"]
+RULES = config["SCHEDULING_RULES"]
+
+# -------------------------
+# Load Sensor Data
+# -------------------------
 df = pd.read_csv("../sensor_data.csv")
-
-# Convert timestamp
 df["Timestamp"] = pd.to_datetime(df["Timestamp"])
 
 print("\n--- Data Overview ---")
@@ -17,40 +29,94 @@ device_stats = df.groupby("Device ID")[["Current (A)", "Temperature (°C)", "Pre
 print("\n--- Average per Device ---")
 print(device_stats)
 
-# Alerts per device
+# Alerts per device (already in CSV)
 alerts_per_device = df.groupby("Device ID")["Alert"].sum()
 print("\n--- Alerts per Device ---")
 print(alerts_per_device)
 
-# -------------------
-# OPTIMIZATION LOGIC
-# -------------------
+# -------------------------
+# Anomaly Detection
+# -------------------------
+features = ["Current (A)", "Temperature (°C)", "Pressure (hPa)"]
+anomaly_detector = IsolationForest(n_estimators=100, contamination=0.05, random_state=42)
+anomalies = anomaly_detector.fit_predict(df[features])
 
-print("\n--- Optimization Suggestions ---")
+df["Anomaly"] = anomalies
+df_anomalies = df[df["Anomaly"] == -1]
 
-suggestions = []
+print("\n--- Anomalies Detected ---")
+print(df_anomalies)
+
+# -------------------------
+# ALERTS (Original Logic)
+# -------------------------
+print("\n--- Alerts ---")
+alerts = []
 
 for device in device_stats.index:
     avg_current = device_stats.loc[device, "Current (A)"]
     avg_temp = device_stats.loc[device, "Temperature (°C)"]
-    alerts = alerts_per_device.get(device, 0)
+    avg_pressure = device_stats.loc[device, "Pressure (hPa)"]
 
-    # Rule 1: Too many alerts → maintenance
-    if alerts > 20:
-        suggestions.append(f"{device}: 🚨 High alert count ({alerts}) → Recommend maintenance.")
-
-    # Rule 2: Low usage → turn off
-    elif avg_current < 4.5:
-        suggestions.append(f"{device}: ⚡ Low current usage ({avg_current:.2f}A) → Consider turning off when not needed.")
-
-    # Rule 3: High temperature → check cooling
-    elif avg_temp > 30:
-        suggestions.append(f"{device}: 🔥 High average temperature ({avg_temp:.2f}°C) → Check cooling system.")
-
-    # Otherwise normal
+    # system type from device_id
+    if "pipe" in device:
+        t = THRESHOLDS["pipe"]
+    elif "container" in device:
+        t = THRESHOLDS["container"]
     else:
-        suggestions.append(f"{device}: ✅ Operating normally.")
+        t = THRESHOLDS["battery_bank"]
 
-# Output optimization suggestions
-for s in suggestions:
+    # check against thresholds
+    if avg_current > t["current"]:
+        alerts.append(f"{device}: Current above safe threshold ({avg_current:.2f}A > {t['current']}A)")
+    if avg_temp > t["temperature"]:
+        alerts.append(f"{device}: Temperature above safe threshold ({avg_temp:.2f}°C > {t['temperature']}°C)")
+    if avg_pressure > t["pressure"]:
+        alerts.append(f"{device}: Pressure above safe threshold ({avg_pressure:.2f}hPa > {t['pressure']}hPa)")
+
+if alerts:
+    for a in alerts:
+        print(a)
+else:
+    print("No alerts triggered.")
+
+# -------------------------
+# SCHEDULING (Added Section)
+# -------------------------
+print("\n--- Scheduling Suggestions ---")
+scheduling = []
+
+for device in device_stats.index:
+    avg_current = device_stats.loc[device, "Current (A)"]
+    avg_temp = device_stats.loc[device, "Temperature (°C)"]
+    avg_pressure = device_stats.loc[device, "Pressure (hPa)"]
+
+    if "pipe" in device:
+        t = THRESHOLDS["pipe"]
+    elif "container" in device:
+        t = THRESHOLDS["container"]
+    else:
+        t = THRESHOLDS["battery_bank"]
+
+    # Rule 1: Idle shutdown
+    if avg_current < RULES["idleMargin"] * t["current"]:
+        scheduling.append(f"{device}: Low usage → Schedule OFF during idle hours.")
+
+    # Rule 2: High load → stagger/rotate
+    elif avg_current > RULES["highLoadMargin"] * t["current"]:
+        scheduling.append(f"{device}: High load → Rotate/stagger usage to balance energy.")
+
+    # Rule 3: Cooling breaks
+    if avg_temp > RULES["coolingMargin"] * t["temperature"]:
+        scheduling.append(f"{device}: Temp nearing limit → Schedule cooling breaks.")
+
+    # Rule 4: Normal operation
+    if (
+        avg_current >= RULES["idleMargin"] * t["current"]
+        and avg_current <= RULES["highLoadMargin"] * t["current"]
+        and avg_temp <= RULES["coolingMargin"] * t["temperature"]
+    ):
+        scheduling.append(f"{device}: Running optimally → Keep ON.")
+
+for s in scheduling:
     print(s)

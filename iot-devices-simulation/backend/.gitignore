@@ -16,3 +16,5 @@ Thumbs.db
 # Build outputs (if using React frontend)
 build/
 dist/
+
+.csv

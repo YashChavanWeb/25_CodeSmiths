@@ -1,0 +1,19 @@
+{
+  "NUMERIC_COLS": ["Temperature (°C)", "Current (A)", "Pressure (hPa)"],
+  "OUTLIER_RANGES": {
+    "Temperature (°C)": [0, 100],
+    "Current (A)": [0, 10],
+    "Pressure (hPa)": [0, 200]
+  },
+  "AGG_METRICS": {
+    "avg_temp_smooth": [0, 80],
+    "avg_current_smooth": [0, 10],
+    "max_pressure": [0, 200]
+  },
+  "WEIGHTS": {
+    "avg_temp_smooth": 0.4,
+    "avg_current_smooth": 0.35,
+    "max_pressure": 0.25
+  },
+  "ROLLING_WINDOW": 3
+}
