@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import DeviceGrid from "./components/DeviceGrid.jsx";
 import SidebarLeft from "./components/SidebarLeft.jsx";
 import SidebarRight from "./components/SidebarRight.jsx";
+import VoiceAssistant from "./components/VoiceAssistant.jsx";
 
 export default function Dashboard() {
   const [devices, setDevices] = useState([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
+  const [listening, setListening] = useState(false); // Track listening state
 
   useEffect(() => {
     const eventSource = new EventSource("http://localhost:3000/api/bot-sensor-stream");
@@ -29,17 +31,13 @@ export default function Dashboard() {
           is_on: true,
         };
 
-        // Update devices state
         setDevices((prevDevices) => {
           const index = prevDevices.findIndex(d => d.device_id === transformed.device_id);
-
           if (index !== -1) {
-            // Device already exists, update it in place
             const updated = [...prevDevices];
             updated[index] = { ...updated[index], ...transformed };
             return updated;
           } else {
-            // New device, add to the end (or wherever you want)
             return [...prevDevices, transformed];
           }
         });
@@ -54,21 +52,16 @@ export default function Dashboard() {
       eventSource.close();
     };
 
-    // Clean up the SSE connection on component unmount
     return () => {
       eventSource.close();
     };
   }, []);
 
   const filteredDevices = devices.filter((d) => {
-    // Filter by category first
     if (category !== "all" && d.device_type !== category) return false;
-
     if (!search) return true;
 
     const query = search.toLowerCase().trim();
-
-    // Check device_id, device_type, status, and location
     return (
       d.device_id.toString().toLowerCase().includes(query) ||
       d.device_type.toLowerCase().includes(query) ||
@@ -76,7 +69,6 @@ export default function Dashboard() {
       d.location.toLowerCase().includes(query)
     );
   });
-
 
   const anomalies = devices.filter(
     (d) =>
@@ -114,10 +106,11 @@ export default function Dashboard() {
               <button
                 key={cat}
                 onClick={() => setCategory(cat)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${category === cat
-                  ? "bg-indigo-600 text-white"
-                  : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
-                  }`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  category === cat
+                    ? "bg-indigo-600 text-white"
+                    : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
+                }`}
               >
                 {cat === "all"
                   ? "All"
@@ -138,9 +131,33 @@ export default function Dashboard() {
         <div className="flex-1 overflow-auto">
           <DeviceGrid devices={filteredDevices} />
         </div>
+
+        {/* Voice Control Button */}
+        <button
+          className={`mt-4 px-4 py-2 rounded-lg ${
+            listening ? "bg-red-600 text-white" : "bg-indigo-600 text-white"
+          }`}
+          onClick={() => {
+            if (listening) {
+              window.stopVoiceRecognition();
+              setListening(false);
+            } else {
+              window.startVoiceRecognition();
+              setListening(true);
+            }
+          }}
+        >
+          {listening ? "Stop Voice Command" : "Start Voice Command"}
+        </button>
       </div>
 
       <SidebarRight anomalies={anomalies} />
+
+      <VoiceAssistant
+        devices={devices}
+        toggleDevice={toggleDevice}
+        setCategory={setCategory}
+      />
     </div>
   );
-} 
+}
