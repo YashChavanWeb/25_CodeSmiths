@@ -95,16 +95,20 @@ export const handleBotReading = async (reading, i, producer) => {
 
     const alert = isDeviceOff ? false : checkThresholds(systemType, reading, THRESHOLDS);
 
-    const fullReading = {
-      deviceId,
-      systemType,
-      timestamp: new Date().toISOString(),
-      temperature: sensorValues.temperature,
-      current: sensorValues.current,
-      pressure: sensorValues.pressure,
-      alert,
-      state: deviceState ? deviceState.state : "on",
-    };
+        // Check if all sensor values are NaN to determine status
+        const isAllNaN = [sensorValues.temperature, sensorValues.current, sensorValues.pressure]
+            .every(val => isNaN(val));
+
+        const fullReading = {
+            deviceId,
+            systemType,
+            timestamp: new Date().toISOString(),
+            temperature: sensorValues.temperature,
+            current: sensorValues.current,
+            pressure: sensorValues.pressure,
+            alert,
+            status: isAllNaN ? 'Off' : 'On' // Set status based on sensor values
+        };
 
     // Update in-memory readings
     botReadings[fullReading.deviceId] = fullReading;
