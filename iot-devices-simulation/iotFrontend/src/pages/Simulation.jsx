@@ -76,7 +76,7 @@ export default function Simulation() {
     <div className="min-h-screen bg-gray-50 p-4 md:p-10">
       <header className="mb-8">
         <h1 className="text-3xl md:text-4xl font-extrabold text-gray-800 border-b-2 border-indigo-200 pb-2">
-          ⚙️ IoT Device Simulation Console
+          IoT Device Simulation Console
         </h1>
         <p className="text-gray-500 mt-2 text-lg">Control and simulate various states for connected devices.</p>
       </header>
@@ -85,7 +85,7 @@ export default function Simulation() {
         {/* --- Field Exclusion Card --- */}
         <div className={cardClasses}>
           <h2 className="text-xl md:text-2xl font-bold text-gray-700 mb-6 flex items-center">
-            <span className="mr-3 text-indigo-500">📊</span> Field Data Control
+            <span className="mr-3 text-indigo-500"></span> Field Data Control
           </h2>
           <div className="space-y-4">
             <div>
@@ -126,8 +126,8 @@ export default function Simulation() {
                   onChange={(e) => setAction(e.target.value)}
                   className={inputClasses + " appearance-none"}
                 >
-                  <option value="exclude">🚫 Exclude (Stop Reporting)</option>
-                  <option value="include">✅ Include (Start Reporting)</option>
+                  <option value="exclude">Exclude (Stop Reporting)</option>
+                  <option value="include">Include (Start Reporting)</option>
                 </select>
               </div>
             </div>
@@ -141,7 +141,7 @@ export default function Simulation() {
         {/* --- Failure Simulation Card --- */}
         <div className={cardClasses}>
           <h2 className="text-xl md:text-2xl font-bold text-gray-700 mb-6 flex items-center">
-            <span className="mr-3 text-red-500">🔥</span> Failure Simulation
+            <span className="mr-3 text-red-500"></span> Failure Simulation
           </h2>
           <div className="space-y-4">
             <div>
@@ -179,11 +179,11 @@ export default function Simulation() {
           </div>
         </div>
       </div>
-      
+
       {/* --- Response Console --- */}
       <div className="mt-8 bg-white p-6 md:p-8 rounded-xl shadow-inner border border-gray-100">
         <h2 className="text-xl font-bold text-gray-700 mb-4 flex items-center">
-          <span className="mr-2 text-green-500">💬</span> API Response Console
+          <span className="mr-2 text-green-500"></span> API Response Console
         </h2>
         <div className="overflow-x-auto">
           <pre className="bg-gray-800 text-green-300 p-4 rounded-lg text-sm whitespace-pre-wrap max-h-96">

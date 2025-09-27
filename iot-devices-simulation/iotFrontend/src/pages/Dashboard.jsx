@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [cleaned, setCleaned] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState("");
 
+  // SSE for live device data
   useEffect(() => {
     const parseAgg = (row) => ({
       ...row,
@@ -137,4 +138,6 @@ export default function Dashboard() {
       </main>
     </div>
   );
+}
+
 }
