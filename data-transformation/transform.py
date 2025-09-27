@@ -2,9 +2,10 @@ import pandas as pd
 import os
 import json
 import time
+from kafka import KafkaConsumer
+import json as js
 
 # ---------------- Paths ----------------
-RAW_CSV = "../iot-devices-simulation/backend/sensor_data.csv"
 CLEAN_CSV = "./sensor_data_cleaned.csv"
 AGG_CSV = "./sensor_data_aggregated.csv"
 os.makedirs("./transformed_data", exist_ok=True)
@@ -56,13 +57,11 @@ AGG_COL_ORDER = (
     + [f"{col}_anomaly" for col in AGG_METRICS.keys()]
 )
 
-
 # ---------------- Helper Function ----------------
 def write_csv_with_header(df, filepath):
     """Append to CSV, ensure header exists if file is missing or empty."""
     write_header = not os.path.exists(filepath) or os.path.getsize(filepath) == 0
     df.to_csv(filepath, index=False, mode="a", header=write_header)
-
 
 # ---------------- Functions ----------------
 def clean_data(df_chunk):
@@ -179,7 +178,7 @@ def aggregate_data(df_chunk):
 # ---------------- Main Real-Time Loop ----------------
 def main_loop(poll_interval=5):
     last_row_count = 0
-    print("Starting real-time transform loop...")
+    print("Starting real-time transform loop (Kafka mode)...")
 
     # Track which minutes already exist in aggregated CSV
     existing_minutes = set()
@@ -193,65 +192,78 @@ def main_loop(poll_interval=5):
             print(f"Warning: cannot read AGG_CSV ({e}), starting fresh.")
             existing_minutes = set()
 
+    # ---------------- Kafka Consumer ----------------
+    consumer = KafkaConsumer(
+        'sensor-data',
+        bootstrap_servers='localhost:9092',
+        auto_offset_reset='earliest',
+        enable_auto_commit=True,
+        group_id='analytics-group',
+        value_deserializer=lambda x: js.loads(x.decode('utf-8'))
+    )
+
+    buffer = []
+
     while True:
         try:
-            df = pd.read_csv(RAW_CSV)
-        except Exception as e:
-            print(f"Failed to read RAW_CSV: {e}")
-            time.sleep(poll_interval)
-            continue
+            for message in consumer:
+                buffer.append(message.value)
 
-        new_rows = df.iloc[last_row_count:]
-        if new_rows.empty:
-            time.sleep(poll_interval)
-            continue
+                if len(buffer) >= 50:  # batch size for processing
+                    df_chunk = pd.DataFrame(buffer)
+                    buffer = []
 
-        print(f"Processing {len(new_rows)} new rows...")
+                    # Rename columns to match existing schema
+                    df_chunk.rename(
+                        columns={
+                            "deviceId": "Device ID",
+                            "systemType": "System Type",
+                            "temperature": "Temperature (°C)",
+                            "current": "Current (A)",
+                            "pressure": "Pressure (hPa)",
+                            "alert": "Alert",
+                            "timestamp": "Timestamp",
+                        },
+                        inplace=True,
+                    )
 
-        try:
-            # --- Clean ---
-            df_chunk = clean_data(new_rows)
-            if df_chunk.empty:
-                last_row_count = len(df)
-                time.sleep(poll_interval)
-                continue
+                    # --- Clean ---
+                    df_chunk = clean_data(df_chunk)
+                    if df_chunk.empty:
+                        continue
 
-            write_csv_with_header(df_chunk, CLEAN_CSV)
+                    write_csv_with_header(df_chunk, CLEAN_CSV)
 
-            # --- Aggregate ---
-            agg_df = aggregate_data(df_chunk)
-            if not agg_df.empty:
-                agg_df["Device_Minute"] = list(
-                    zip(agg_df["Device ID"], agg_df["Minute"])
-                )
-                agg_df = agg_df[~agg_df["Device_Minute"].isin(existing_minutes)].drop(
-                    columns=["Device_Minute"]
-                )
+                    # --- Aggregate ---
+                    agg_df = aggregate_data(df_chunk)
+                    if not agg_df.empty:
+                        agg_df["Device_Minute"] = list(
+                            zip(agg_df["Device ID"], agg_df["Minute"])
+                        )
+                        agg_df = agg_df[~agg_df["Device_Minute"].isin(existing_minutes)].drop(
+                            columns=["Device_Minute"]
+                        )
 
-                if not agg_df.empty:
-                    chunk_size = max(1, len(agg_df) // 10)
-                    clumped_agg_df = pd.concat(
-                        [
-                            agg_df.iloc[i : i + chunk_size]
-                            for i in range(0, len(agg_df), chunk_size)
-                        ]
-                    ).reset_index(drop=True)
+                        if not agg_df.empty:
+                            chunk_size = max(1, len(agg_df) // 10)
+                            clumped_agg_df = pd.concat(
+                                [
+                                    agg_df.iloc[i : i + chunk_size]
+                                    for i in range(0, len(agg_df), chunk_size)
+                                ]
+                            ).reset_index(drop=True)
 
-                    write_csv_with_header(clumped_agg_df, AGG_CSV)
-                    existing_minutes.update(zip(agg_df["Device ID"], agg_df["Minute"]))
-                    print(f"Updated aggregated CSV with {len(clumped_agg_df)} new rows")
+                            write_csv_with_header(clumped_agg_df, AGG_CSV)
+                            existing_minutes.update(zip(agg_df["Device ID"], agg_df["Minute"]))
+                            print(f"Updated aggregated CSV with {len(clumped_agg_df)} new rows")
 
+        except KeyboardInterrupt:
+            print("\nStopped by user")
+            break
         except Exception as e:
             print(f"Error during processing: {e}")
-
-        last_row_count = len(df)
-        time.sleep(poll_interval)
+            time.sleep(poll_interval)
 
 
 if __name__ == "__main__":
-    try:
-        main_loop()
-    except KeyboardInterrupt:
-        print("\nStopped by user")
-    except Exception as e:
-        print(f"Error in main loop: {e}")
+    main_loop()
