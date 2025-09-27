@@ -19,99 +19,35 @@ AGG_METRICS = {k: tuple(v) for k, v in config["AGG_METRICS"].items()}
 WEIGHTS = config["WEIGHTS"]
 ROLLING_WINDOW = config["ROLLING_WINDOW"]
 
-# ---------------- Fixed column schemas ----------------
-CLEAN_COL_ORDER = [
-    "Device ID",
-    "System Type",
-    "Timestamp",
-    "Temperature (°C)",
-    "Current (A)",
-    "Pressure (hPa)",
-    "Alert",
-    "Power (W)",
-    "Temp_Rate",
-    "Timestamp_IST",
-    "Status",  # Added Status column here
-]
-
-AGG_COL_ORDER = (
-    [
-        "Device ID",
-        "Minute",
-        "avg_temp",
-        "avg_current",
-        "max_pressure",
-        "total_power",
-        "avg_temp_rate",
-        "avg_temp_smooth",
-        "avg_current_smooth",
-        "total_power_smooth",
-        "temp_roll_max",
-        "temp_roll_min",
-        "power_roll_max",
-        "power_roll_min",
-        "safety_score",
-        "safety_score_smooth",
-        "Status",  # Added Status column here
-    ]
-    + [f"{col}_risk" for col in AGG_METRICS.keys()]
-    + [f"{col}_anomaly" for col in AGG_METRICS.keys()]
-)
-
-
-# ---------------- Helper Function ----------------
-def write_csv_with_header(df, filepath):
-    """Append to CSV, ensure header exists if file is missing or empty."""
-    write_header = not os.path.exists(filepath) or os.path.getsize(filepath) == 0
-    df.to_csv(filepath, index=False, mode="a", header=write_header)
-
 
 # ---------------- Functions ----------------
 def clean_data(df_chunk):
     if df_chunk.empty:
         return df_chunk
 
-    df_chunk = df_chunk.copy()
-
-    # Fill missing numeric cols with median safely
     for col in NUMERIC_COLS:
         if col in df_chunk.columns:
-            df_chunk.loc[:, col] = df_chunk[col].fillna(df_chunk[col].median())
+            col_median = df_chunk[col].median()
+            df_chunk.loc[:, col] = df_chunk[col].fillna(col_median)
 
-    # Remove outliers
     for col, (low, high) in OUTLIER_RANGES.items():
         if col in df_chunk.columns:
             df_chunk = df_chunk[(df_chunk[col] >= low) & (df_chunk[col] <= high)]
 
-    # Add computed columns
     df_chunk["Power (W)"] = df_chunk.get("Current (A)", 0) * 220
     df_chunk["Timestamp"] = pd.to_datetime(
         df_chunk["Timestamp"], utc=True, errors="coerce"
     )
     df_chunk = df_chunk.dropna(subset=["Timestamp"]).sort_values(
-        ["Device ID", "Timestamp"]
+        by=["Device ID", "Timestamp"]
     )
 
-    # Temperature rate of change
     df_chunk["Temp_Rate"] = (
         df_chunk.groupby("Device ID")["Temperature (°C)"].diff()
         / df_chunk.groupby("Device ID")["Timestamp"].diff().dt.total_seconds()
-    ).fillna(0)
-
-    # Convert to IST
-    df_chunk["Timestamp_IST"] = df_chunk["Timestamp"].dt.tz_convert("Asia/Kolkata")
-
-    # Ensure Status is preserved and filled forward within each device group
-    df_chunk["Status"] = (
-        df_chunk.groupby("Device ID")["Status"].fillna(method="ffill").fillna("On")
     )
-
-    # Reorder + ensure all columns exist
-    for col in CLEAN_COL_ORDER:
-        if col not in df_chunk.columns:
-            df_chunk[col] = pd.NA
-    df_chunk = df_chunk[CLEAN_COL_ORDER]
-
+    df_chunk["Temp_Rate"] = df_chunk["Temp_Rate"].fillna(0)
+    df_chunk["Timestamp_IST"] = df_chunk["Timestamp"].dt.tz_convert("Asia/Kolkata")
     return df_chunk
 
 
@@ -120,8 +56,6 @@ def aggregate_data(df_chunk):
         return pd.DataFrame()
 
     df_chunk["Minute"] = df_chunk["Timestamp_IST"].dt.floor("min")
-
-    # Aggregate data
     agg_df = (
         df_chunk.groupby(["Device ID", "Minute"])
         .agg(
@@ -130,16 +64,10 @@ def aggregate_data(df_chunk):
             max_pressure=("Pressure (hPa)", "max"),
             total_power=("Power (W)", "sum"),
             avg_temp_rate=("Temp_Rate", "mean"),
-            # Add Status (most common status within the minute)
-            Status=(
-                "Status",
-                lambda x: x.mode().iloc[0] if not x.empty else "On",
-            ),  # Take the most frequent status in the minute interval
         )
         .reset_index()
     )
 
-    # Rolling smoothing
     for col in ["avg_temp", "avg_current", "total_power"]:
         agg_df[col + "_smooth"] = (
             agg_df.groupby("Device ID")[col]
@@ -148,7 +76,6 @@ def aggregate_data(df_chunk):
             .reset_index(0, drop=True)
         )
 
-    # Rolling max/min
     agg_df[["temp_roll_max", "temp_roll_min"]] = (
         agg_df.groupby("Device ID")["avg_temp_smooth"]
         .rolling(ROLLING_WINDOW, min_periods=1)
@@ -162,13 +89,12 @@ def aggregate_data(df_chunk):
         .reset_index(0, drop=True)
     )
 
-    # Risk scoring
     for col, (low, high) in AGG_METRICS.items():
         if col in agg_df.columns:
-            agg_df[col + "_risk"] = ((agg_df[col] - low) / (high - low)).clip(0, 1)
+            risk_col = col + "_risk"
+            agg_df[risk_col] = ((agg_df[col] - low) / (high - low)).clip(0, 1)
             agg_df[col + "_anomaly"] = ~agg_df[col].between(low, high)
 
-    # Weighted safety score
     agg_df["safety_score"] = sum(
         agg_df[col + "_risk"] * w for col, w in WEIGHTS.items()
     )
@@ -180,13 +106,13 @@ def aggregate_data(df_chunk):
         .reset_index(0, drop=True)
     )
 
-    # Reorder + ensure all columns exist
-    for col in AGG_COL_ORDER:
-        if col not in agg_df.columns:
-            agg_df[col] = pd.NA
-    agg_df = agg_df[AGG_COL_ORDER]
+    # For clumping, split the aggregated data into 10 equal-sized chunks
+    chunk_size = len(agg_df) // 10
+    clumped_agg_df = pd.concat(
+        [agg_df.iloc[i : i + chunk_size] for i in range(0, len(agg_df), chunk_size)]
+    ).reset_index(drop=True)
 
-    return agg_df
+    return clumped_agg_df
 
 
 # ---------------- Main Real-Time Loop ----------------
@@ -202,8 +128,7 @@ def main_loop(poll_interval=5):
             existing_minutes = set(
                 zip(existing_agg["Device ID"], existing_agg["Minute"])
             )
-        except Exception as e:
-            print(f"Warning: cannot read AGG_CSV ({e}), starting fresh.")
+        except Exception:
             existing_minutes = set()
 
     while True:
@@ -220,49 +145,44 @@ def main_loop(poll_interval=5):
             continue
 
         print(f"Processing {len(new_rows)} new rows...")
-
-        try:
-            # --- Clean ---
-            df_chunk = clean_data(new_rows)
-            if df_chunk.empty:
-                last_row_count = len(df)
-                time.sleep(poll_interval)
-                continue
-
-            write_csv_with_header(df_chunk, CLEAN_CSV)
-
-            # --- Aggregate ---
-            agg_df = aggregate_data(df_chunk)
-            if not agg_df.empty:
-                agg_df["Device_Minute"] = list(
-                    zip(agg_df["Device ID"], agg_df["Minute"])
-                )
-                agg_df = agg_df[~agg_df["Device_Minute"].isin(existing_minutes)].drop(
-                    columns=["Device_Minute"]
-                )
-
-                if not agg_df.empty:
-                    chunk_size = max(1, len(agg_df) // 10)
-                    clumped_agg_df = pd.concat(
-                        [
-                            agg_df.iloc[i : i + chunk_size]
-                            for i in range(0, len(agg_df), chunk_size)
-                        ]
-                    ).reset_index(drop=True)
-
-                    write_csv_with_header(clumped_agg_df, AGG_CSV)
-                    existing_minutes.update(zip(agg_df["Device ID"], agg_df["Minute"]))
-
-        except Exception as e:
-            print(f"Error during processing: {e}")
+        df_chunk = clean_data(new_rows)
+        if df_chunk.empty:
+            last_row_count = len(df)
             time.sleep(poll_interval)
             continue
 
-        # Update last processed row count
+        # Append cleaned data
+        df_chunk.to_csv(
+            CLEAN_CSV, index=False, mode="a", header=not os.path.exists(CLEAN_CSV)
+        )
+
+        # Aggregate only new minutes and clump into 10 rows
+        agg_df = aggregate_data(df_chunk)
+        if not agg_df.empty:
+            agg_df["Device_Minute"] = list(zip(agg_df["Device ID"], agg_df["Minute"]))
+            agg_df = agg_df[~agg_df["Device_Minute"].isin(existing_minutes)].drop(
+                columns=["Device_Minute"]
+            )
+            if not agg_df.empty:
+                agg_df.to_csv(
+                    AGG_CSV, index=False, mode="a", header=not os.path.exists(AGG_CSV)
+                )
+                existing_minutes.update(zip(agg_df["Device ID"], agg_df["Minute"]))
+                print(f"Updated aggregated CSV with {len(agg_df)} new rows")
+                print(
+                    agg_df[
+                        ["Device ID", "Minute", "safety_score", "safety_score_smooth"]
+                    ].head()
+                )
+
         last_row_count = len(df)
         time.sleep(poll_interval)
 
 
-# Start the main loop
 if __name__ == "__main__":
-    main_loop()
+    try:
+        main_loop()
+    except KeyboardInterrupt:
+        print("\nStopped by user")
+    except Exception as e:
+        print(f"Error in main loop: {e}")

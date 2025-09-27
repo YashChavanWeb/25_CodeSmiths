@@ -6,6 +6,10 @@ logs/
 *.log
 npm-debug.log*
 
+
+
+venv
+
 # Environment variables
 .env
 
