@@ -1,3 +1,4 @@
+// src/components/VoiceAssistant.jsx
 import { useEffect, useRef } from "react";
 
 export default function VoiceAssistant({ devices, toggleDevice, setCategory }) {
@@ -30,7 +31,7 @@ export default function VoiceAssistant({ devices, toggleDevice, setCategory }) {
         // --- Turn Off/On Device ---
         const turnOffMatch = command.match(/(turn|switch) off device (\d+)/);
         const turnOnMatch = command.match(/(turn|switch) on device (\d+)/);
-        const turnBackOnMatch = command.match(/(turn|switch) back on device (\d+)/); // For turning back on
+        const turnBackOnMatch = command.match(/(turn|switch) back on device (\d+)/);
 
         if (turnOffMatch) {
           const deviceId = `device_${turnOffMatch[2]}`;
@@ -50,6 +51,11 @@ export default function VoiceAssistant({ devices, toggleDevice, setCategory }) {
           } else {
             speak(`Device number ${turnBackOnMatch[2]} is already on.`);
           }
+        }
+
+        // --- Failure Simulation ---
+        else if (command.includes("simulate failure")) {
+          speak("Simulating failure with provided parameters.");
         }
 
         // --- Query Commands ---
@@ -77,25 +83,13 @@ export default function VoiceAssistant({ devices, toggleDevice, setCategory }) {
         else if (command.includes("which devices are turned off")) {
           const turnedOffDevices = devices
             .filter(d => !d.is_on)
-            .map(d => d.device_id.replace("device_", "")) // Extract device ID (e.g., 12, 38)
+            .map(d => d.device_id.replace("device_", "")) // Extract device ID
             .join(", "); // Join the device IDs with a comma
 
           if (turnedOffDevices) {
             speak(`The following devices are turned off: ${turnedOffDevices}`);
           } else {
             speak("All devices are currently on.");
-          }
-        }
-
-        // --- Display/Filter Commands ---
-        else if (command.includes("display") || command.includes("show")) {
-          const categories = ["pipe", "container", "battery bank", "all"];
-          const foundCategory = categories.find(cat => command.includes(cat));
-          if (foundCategory) {
-            setCategory(foundCategory === "all" ? "all" : foundCategory.replace(" ", "_"));
-            speak(`Displaying ${foundCategory} devices.`);
-          } else {
-            speak("Specify category: pipe, container, or battery bank.");
           }
         }
 
