@@ -30,7 +30,7 @@ export function removeFieldExclusion(deviceId, field) {
 
 // Function to switch the state of a device
 export function switchDeviceState(devices, deviceId, action) {
-    const formattedId = deviceId.startsWith('device_') ? deviceId : `device_${deviceId}`;
+    const formattedId = `device_${deviceId.toString()}`;
     const device = devices.get(formattedId);
 
     if (!device) {

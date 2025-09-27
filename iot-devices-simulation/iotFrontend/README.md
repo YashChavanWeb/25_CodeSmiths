@@ -1,16 +1,9 @@
-# React + Vite
+To represent the failure simulation information in a table format, here’s how it could look:
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+| **Failure Type**                  | **API Endpoint**               | **Request Payload**                                             |
+| --------------------------------- | ------------------------------ | --------------------------------------------------------------- |
+| Switch on/off device              | `/api/device/22/switch`        | `{ "action": "off" }`                                           |
+| Sensor turns off                  | `/api/device/fields`           | `{ "deviceId": 7, "field": "pressure", "action": "exclude" }`   |
+| Parameter spikes and device fails | `/api/device/simulate-failure` | `{ "deviceId": 48, "parameters": ["temperature", "pressure"] }` |
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## React Compiler
-
-The React Compiler is not enabled on this template. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+This table breaks down the failure types, their associated API endpoints, and the corresponding payloads used for simulating each failure.

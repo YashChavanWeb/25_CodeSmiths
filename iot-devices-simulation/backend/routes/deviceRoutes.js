@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.post("/sensor-data", postSensorData);
 router.get("/sensor-data", getSensorData);
-router.post("/device/:id/switch", switchDeviceStateHandler);
+router.post("/device/switch", switchDeviceStateHandler);
 router.post("/device/fields", manageFieldExclusions);
 router.post("/device/simulate-failure", simulateFailure);
 

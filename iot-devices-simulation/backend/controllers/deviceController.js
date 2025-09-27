@@ -26,6 +26,7 @@ export const getSensorData = (req, res) => {
 };
 
 // POST endpoint to switch device state
+
 // POST endpoint to simulate system failure
 export const simulateFailure = (req, res) => {
     const { deviceId, parameters } = req.body;
@@ -100,17 +101,29 @@ export const manageFieldExclusions = (req, res) => {
 };
 
 export const switchDeviceStateHandler = (req, res) => {
-    const { id } = req.params;
-    const { action } = req.body;
+    const { deviceId, action } = req.body;
+
+    // Validate input
+    if (!deviceId || !action) {
+        return res.status(400).json({ 
+            message: "Missing required fields. Please provide deviceId and action" 
+        });
+    }
+
+    // Validate action
+    if (action !== 'on' && action !== 'off') {
+        return res.status(400).json({ 
+            message: "Invalid action. Must be either 'on' or 'off'" 
+        });
+    }
 
     // Check if the device is excluded from state switching
-    if (excludedDevices.has(id)) {
+    if (excludedDevices.has(deviceId)) {
         return res.status(403).json({ message: "Device is excluded from state changes." });
     }
 
     try {
-        // Import deviceStates instead of activeDevices
-        const response = switchDeviceState(deviceStates, id, action);
+        const response = switchDeviceState(deviceStates, deviceId, action);
         return res.status(200).json(response);
     } catch (error) {
         return res.status(400).json({ message: error.message });
