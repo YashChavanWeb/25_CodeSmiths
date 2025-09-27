@@ -1,0 +1,166 @@
+[33mcommit 641b69081925928941fc222868f86b6d43ff03a6[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32miot-simulation-ui[m[33m)[m
+Merge: bb208cd 61168f1
+Author: unknown <sarwadeepdhaval@gmail.com>
+Date:   Fri Sep 26 12:48:33 2025 +0530
+
+    Merge branch 'iot-simulation-ui' of https://github.com/YashChavanWeb/25_CodeSmiths into iot-simulation-ui
+
+[33mcommit bb208cd815af657f9000ecf91fb841ccedff9844[m
+Author: unknown <sarwadeepdhaval@gmail.com>
+Date:   Fri Sep 26 12:46:31 2025 +0530
+
+    Push kar
+
+[33mcommit 61168f128d2cc5adbc17a75ea67deac899448088[m[33m ([m[1;31morigin/iot-simulation-ui[m[33m)[m
+Author: krishachikka <chikkakrisha@gmail.com>
+Date:   Fri Sep 26 12:36:38 2025 +0530
+
+    Updated ESM
+
+[33mcommit 6c5b240c034a073947f83a45bbb48551fa190b9f[m
+Author: krishachikka <chikkakrisha@gmail.com>
+Date:   Fri Sep 26 12:27:17 2025 +0530
+
+    Updated ESM
+
+[33mcommit c9644985cc0a16d2c2e9b6762589f80559e59482[m
+Merge: 7d0a3a6 17df764
+Author: krisha <147174716+krishachikka@users.noreply.github.com>
+Date:   Fri Sep 26 12:27:58 2025 +0530
+
+    Merge pull request #6 from YashChavanWeb/iot-simulation
+    
+    Merge pull request #5 from YashChavanWeb/iot-simulation-ui
+
+[33mcommit 7d0a3a6be46b8131ea441767b1d1b25c0ecb3097[m
+Author: unknown <sarwadeepdhaval@gmail.com>
+Date:   Fri Sep 26 12:22:27 2025 +0530
+
+    Frontend and Backend Connected
+
+[33mcommit 17df7640814e6086ffdadc98eccba9dce28c582f[m
+Merge: fbda5ab 8739a31
+Author: krisha <147174716+krishachikka@users.noreply.github.com>
+Date:   Fri Sep 26 11:52:32 2025 +0530
+
+    Merge pull request #5 from YashChavanWeb/iot-simulation-ui
+    
+    Merge pull request #4 from YashChavanWeb/iot-simulation
+
+[33mcommit 8739a315458fbe90f056f85373dc488624f8229d[m
+Merge: 2a42a48 fbda5ab
+Author: krisha <147174716+krishachikka@users.noreply.github.com>
+Date:   Fri Sep 26 11:51:55 2025 +0530
+
+    Merge pull request #4 from YashChavanWeb/iot-simulation
+    
+    Iot simulation
+
+[33mcommit fbda5ab5abde7a7ffb99fc0e72e98f3eff03ee43[m
+Merge: b8100fb 2a42a48
+Author: krisha <147174716+krishachikka@users.noreply.github.com>
+Date:   Fri Sep 26 11:51:43 2025 +0530
+
+    Merge branch 'iot-simulation-ui' into iot-simulation
+
+[33mcommit 2a42a48c34345916073c15aaa826d8f4d7ed5d93[m
+Author: unknown <sarwadeepdhaval@gmail.com>
+Date:   Fri Sep 26 11:48:12 2025 +0530
+
+    Edited BOT
+
+[33mcommit b8100fb551c21ce4da2700404cb3442482815823[m
+Author: krishachikka <chikkakrisha@gmail.com>
+Date:   Fri Sep 26 11:44:29 2025 +0530
+
+    Done
+
+[33mcommit 67538f102bf28d0c7677ed709ec1574d16c38bfc[m
+Author: unknown <sarwadeepdhaval@gmail.com>
+Date:   Fri Sep 26 11:19:41 2025 +0530
+
+    Remove unwanted files from branch, keep backend, iotFrontend, Readme.md
+
+[33mcommit 14359e85a1a77cfc131b279458d2b320a314e04b[m
+Author: krishachikka <chikkakrisha@gmail.com>
+Date:   Fri Sep 26 11:16:51 2025 +0530
+
+    Remove unwanted files from branch, keep backend, iotFrontend, Readme.md
+
+[33mcommit 86a1afaf5e021759bd0946d105dcf160c469e478[m
+Author: unknown <sarwadeepdhaval@gmail.com>
+Date:   Fri Sep 26 11:11:41 2025 +0530
+
+    connected to backend bot
+
+[33mcommit 6a476431800eae37bde32f99ba2f0b58c9ad5a49[m
+Author: krishachikka <chikkakrisha@gmail.com>
+Date:   Fri Sep 26 11:11:34 2025 +0530
+
+    added diff sensors
+
+[33mcommit 324a0e726fa5b3f73a4325f9c6d343fc969e6509[m
+Merge: 73f9ec1 4170f65
+Author: krisha <147174716+krishachikka@users.noreply.github.com>
+Date:   Fri Sep 26 10:24:13 2025 +0530
+
+    Merge pull request #2 from YashChavanWeb/iot-simulation-ui
+    
+    Iot simulation UI
+
+[33mcommit 4170f651465720bef32bb29174b95a80e2b0616e[m
+Merge: 3d6f6c8 73f9ec1
+Author: krisha <147174716+krishachikka@users.noreply.github.com>
+Date:   Fri Sep 26 10:22:41 2025 +0530
+
+    Merge pull request #1 from YashChavanWeb/iot-simulation
+    
+    Iot simulation
+
+[33mcommit 3d6f6c8ae56c48ca1212450c5358626536602185[m[33m ([m[1;32mIotUI[m[33m)[m
+Author: unknown <sarwadeepdhaval@gmail.com>
+Date:   Fri Sep 26 10:16:15 2025 +0530
+
+    iotFrontend
+
+[33mcommit 73f9ec1c229b0b6c042bd72b35349bc999ae7e94[m
+Author: krishachikka <chikkakrisha@gmail.com>
+Date:   Fri Sep 26 10:10:01 2025 +0530
+
+    Done with api endpoint
+
+[33mcommit 38f6968f8099d0bd27ce731abc90c80fe0591d4d[m
+Author: krishachikka <chikkakrisha@gmail.com>
+Date:   Fri Sep 26 10:09:31 2025 +0530
+
+    Remove node_modules from repo
+
+[33mcommit bbecc2e35144f64d148103b48558d6d7d66f5c87[m
+Author: krishachikka <chikkakrisha@gmail.com>
+Date:   Fri Sep 26 10:05:04 2025 +0530
+
+    done w api endpoints
+
+[33mcommit a9ef24062f08557f5acb163d2e3bf9462761cd01[m
+Author: krishachikka <chikkakrisha@gmail.com>
+Date:   Fri Sep 26 09:20:05 2025 +0530
+
+    done w simulation
+
+[33mcommit 9751949f14b61c174a48fa2adf9287b0bc037f54[m
+Author: unknown <sarwadeepdhaval@gmail.com>
+Date:   Fri Sep 26 09:17:51 2025 +0530
+
+    First commit
+
+[33mcommit 11d4d5fa64f666f32e530e5a4aaae5bd74e0cfed[m
+Author: krishachikka <chikkakrisha@gmail.com>
+Date:   Fri Sep 26 09:14:29 2025 +0530
+
+    done w simulation
+
+[33mcommit f2cbe75ef9bf93f8fe94aea1a6b278fc939edbd4[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m
+Author: YashChavanWeb <yashchavan4628@gmail.com>
+Date:   Fri Sep 26 08:43:02 2025 +0530
+
+    first commit
