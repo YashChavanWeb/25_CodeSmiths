@@ -3,8 +3,6 @@ import DeviceGrid from "../components/DeviceGrid.jsx";
 import SidebarLeft from "../components/SidebarLeft.jsx";
 import SidebarRight from "../components/SidebarRight.jsx";
 
-
-
 export default function Dashboard() {
   const [devices, setDevices] = useState([]);
   const [search, setSearch] = useState("");
@@ -18,7 +16,7 @@ export default function Dashboard() {
         const data = JSON.parse(event.data);
 
         const transformed = {
-          device_id: data.deviceId,
+          device_id: data.deviceId, // keep exactly what SSE sends
           device_type: data.systemType,
           status: data.alert ? "alert" : "ok",
           metrics: {
@@ -31,20 +29,24 @@ export default function Dashboard() {
           is_on: true,
         };
 
-        // Update devices state
-        setDevices((prevDevices) => {
-          const index = prevDevices.findIndex(d => d.device_id === transformed.device_id);
+       setDevices((prevDevices) => {
+  const index = prevDevices.findIndex(d => d.device_id === transformed.device_id);
 
-          if (index !== -1) {
-            // Device already exists, update it in place
-            const updated = [...prevDevices];
-            updated[index] = { ...updated[index], ...transformed };
-            return updated;
-          } else {
-            // New device, add to the end (or wherever you want)
-            return [...prevDevices, transformed];
-          }
-        });
+  if (index !== -1) {
+    const updated = [...prevDevices];
+    const currentDevice = updated[index];
+
+    updated[index] = {
+      ...currentDevice,
+      ...transformed,
+      is_on: currentDevice.is_on // keep manual state until SSE confirms change
+    };
+    return updated;
+  } else {
+    return [...prevDevices, transformed];
+  }
+});
+
 
       } catch (err) {
         console.error("❌ Error processing SSE data:", err);
@@ -56,29 +58,65 @@ export default function Dashboard() {
       eventSource.close();
     };
 
-    // Clean up the SSE connection on component unmount
     return () => {
       eventSource.close();
     };
   }, []);
 
-  const filteredDevices = devices.filter((d) => {
-    // Filter by category first
-    if (category !== "all" && d.device_type !== category) return false;
+  const toggleDevice = async (deviceId, currentState) => {
+    console.log("🔄 Toggling device:", deviceId, "Current state:", currentState);
 
+    const newAction = currentState ? "off" : "on";
+
+    // ❗ Fix: strip extra "device_" prefix before sending to backend
+    const cleanDeviceId = deviceId.replace(/^device_/, "");
+    console.log("🔍 Clean Device ID sent to backend:", cleanDeviceId);
+
+    try {
+      const requestBody = { deviceId: cleanDeviceId, action: newAction };
+      console.log("📤 Sending to backend:", requestBody);
+
+      const res = await fetch("http://localhost:3000/api/device/switch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody)
+      });
+
+      console.log("📥 Response status:", res.status);
+      const data = await res.json();
+      console.log("📥 Response data:", data);
+
+      if (res.ok) {
+        console.log("✅ Success - updating device state");
+        setDevices((prev) =>
+          prev.map((d) =>
+            d.device_id === deviceId
+              ? { ...d, is_on: data.state === "on" }
+              : d
+          )
+        );
+      } else {
+        console.error("❌ Error switching device:", data.message || data);
+        alert(`Error: ${data.message || "Failed to switch device"}`);
+      }
+    } catch (error) {
+      console.error("❌ Network error:", error);
+      alert("Network error: Could not connect to server");
+    }
+  };
+
+  const filteredDevices = devices.filter((d) => {
+    if (category !== "all" && d.device_type !== category) return false;
     if (!search) return true;
 
     const query = search.toLowerCase().trim();
-
-    // Check device_id, device_type, status, and location
     return (
-      d.device_id.toString().toLowerCase().includes(query) ||
+      d.device_id.toLowerCase().includes(query) ||
       d.device_type.toLowerCase().includes(query) ||
       d.status.toLowerCase().includes(query) ||
       d.location.toLowerCase().includes(query)
     );
   });
-
 
   const anomalies = devices.filter(
     (d) =>
@@ -86,20 +124,13 @@ export default function Dashboard() {
       (d.metrics.temperature_c > 80 || d.metrics.pressure_kpa > 120)
   );
 
-  const toggleDevice = (id) => {
-    setDevices((prev) =>
-      prev.map((d) =>
-        d.device_id === id ? { ...d, is_on: !d.is_on } : d
-      )
-    );
-  };
-
   return (
     <div className="flex h-screen bg-gray-100">
       <SidebarLeft
         devices={devices}
         toggleDevice={toggleDevice}
         category={category}
+        search={search}
       />
 
       <div className="flex-1 flex flex-col p-6 overflow-hidden">
@@ -145,4 +176,4 @@ export default function Dashboard() {
       <SidebarRight anomalies={anomalies} />
     </div>
   );
-} 
+}
