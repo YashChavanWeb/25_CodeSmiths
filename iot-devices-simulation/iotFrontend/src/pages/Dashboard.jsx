@@ -1,148 +1,140 @@
 import { useEffect, useState } from "react";
-import DeviceGrid from "../components/DeviceGrid.jsx";
-import SidebarLeft from "../components/SidebarLeft.jsx";
-import SidebarRight from "../components/SidebarRight.jsx";
-
-
+import Papa from "papaparse";
+import ChartCard from "../components/Dashboard/ChartCard";
+import PowerTrendChart from "../components/Dashboard/PowerTrendChart";
+import SafetyScoreChart from "../components/Dashboard/SafetyScoreChart";
+import AvgStatsChart from "../components/Dashboard/AvgStatsChart";
+import DeviceMetricsChart from "../components/Dashboard/DeviceMetricsChart";
+import SafetyGauge from "../components/Dashboard/SafetyGauge";
+import DeviceInsights from "../components/Dashboard/DeviceInsights";
 
 export default function Dashboard() {
-  const [devices, setDevices] = useState([]);
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("all");
+  const [aggregated, setAggregated] = useState([]);
+  const [cleaned, setCleaned] = useState([]);
+  const [selectedDevice, setSelectedDevice] = useState("");
 
   useEffect(() => {
-    const eventSource = new EventSource("http://localhost:3000/api/bot-sensor-stream");
+    const parseAgg = (row) => ({
+      ...row,
+      total_power: Number(row.total_power),
+      safety_score: Number(row.safety_score),
+      avg_temp: Number(row.avg_temp),
+      avg_current: Number(row.avg_current),
+      max_pressure: Number(row.max_pressure),
+    });
 
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
+    const parseClean = (row) => ({
+      ...row,
+      "Temperature (°C)": Number(row["Temperature (°C)"]),
+      "Current (A)": Number(row["Current (A)"]),
+      "Pressure (hPa)": Number(row["Pressure (hPa)"]),
+      "Power (W)": Number(row["Power (W)"]),
+    });
 
-        const transformed = {
-          device_id: data.deviceId,
-          device_type: data.systemType,
-          status: data.alert ? "alert" : "ok",
-          metrics: {
-            current_amp: data.current,
-            temperature_c: data.temperature,
-            pressure_kpa: data.pressure,
-          },
-          location: "line-1",
-          timestamp: data.timestamp,
-          is_on: true,
-        };
+    Papa.parse("/sensor_data_aggregated.csv", {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: (result) => setAggregated(result.data.map(parseAgg)),
+    });
 
-        // Update devices state
-        setDevices((prevDevices) => {
-          const index = prevDevices.findIndex(d => d.device_id === transformed.device_id);
-
-          if (index !== -1) {
-            // Device already exists, update it in place
-            const updated = [...prevDevices];
-            updated[index] = { ...updated[index], ...transformed };
-            return updated;
-          } else {
-            // New device, add to the end (or wherever you want)
-            return [...prevDevices, transformed];
-          }
-        });
-
-      } catch (err) {
-        console.error("❌ Error processing SSE data:", err);
-      }
-    };
-
-    eventSource.onerror = (err) => {
-      console.error("❌ Error with SSE connection:", err);
-      eventSource.close();
-    };
-
-    // Clean up the SSE connection on component unmount
-    return () => {
-      eventSource.close();
-    };
+    Papa.parse("/sensor_data_cleaned.csv", {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: (result) => setCleaned(result.data.map(parseClean)),
+    });
   }, []);
 
-  const filteredDevices = devices.filter((d) => {
-    // Filter by category first
-    if (category !== "all" && d.device_type !== category) return false;
+  const devices = [...new Set(aggregated.map((row) => row["Device ID"]))];
 
-    if (!search) return true;
+  const aggData = selectedDevice
+    ? aggregated.filter((r) => r["Device ID"] === selectedDevice)
+    : aggregated;
 
-    const query = search.toLowerCase().trim();
-
-    // Check device_id, device_type, status, and location
-    return (
-      d.device_id.toString().toLowerCase().includes(query) ||
-      d.device_type.toLowerCase().includes(query) ||
-      d.status.toLowerCase().includes(query) ||
-      d.location.toLowerCase().includes(query)
-    );
-  });
-
-
-  const anomalies = devices.filter(
-    (d) =>
-      d.device_type === "container" &&
-      (d.metrics.temperature_c > 80 || d.metrics.pressure_kpa > 120)
-  );
-
-  const toggleDevice = (id) => {
-    setDevices((prev) =>
-      prev.map((d) =>
-        d.device_id === id ? { ...d, is_on: !d.is_on } : d
-      )
-    );
-  };
+  const cleanData = selectedDevice
+    ? cleaned.filter((r) => r["Device ID"] === selectedDevice)
+    : cleaned;
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      <SidebarLeft
-        devices={devices}
-        toggleDevice={toggleDevice}
-        category={category}
-      />
+    <div className="min-h-screen bg-white text-gray-900">
+      {/* Header */}
+      <header className="bg-black text-white p-4 shadow-md flex justify-between items-center fixed z-10 top-0 min-w-screen">
+        <h1 className="text-2xl font-bold">Smart Energy & Safety Dashboard</h1>
+        <select
+          className="text-black rounded px-2 py-1"
+          value={selectedDevice}
+          onChange={(e) => setSelectedDevice(e.target.value)}
+        >
+          <option value="">All Devices</option>
+          {devices.map((d) => (
+            <option key={d} value={d}>
+              {d}
+            </option>
+          ))}
+        </select>
+      </header>
 
-      <div className="flex-1 flex flex-col p-6 overflow-hidden">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">IOT Device Dashboard</h1>
-          <p className="mt-2 sm:mt-0 text-gray-500">
-            Monitoring {devices.length} devices in real-time
-          </p>
-        </div>
+      {/* Main */}
+      <main className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 mt-14">
+        {/* Left Section: Aggregated Overview */}
+        <section>
+            <ChartCard title="Average Device Stats">
+              <AvgStatsChart data={cleanData} />
+            </ChartCard>
+          <ChartCard title="Power Consumption (Aggregated)">
+            <PowerTrendChart data={aggData} />
+          </ChartCard>
 
-        <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
-          <div className="flex gap-2">
-            {["all", "pipe", "container", "battery_bank"].map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setCategory(cat)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${category === cat
-                  ? "bg-indigo-600 text-white"
-                  : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
-                  }`}
-              >
-                {cat === "all"
-                  ? "All"
-                  : cat.charAt(0).toUpperCase() + cat.slice(1).replace("_", " ")}
-              </button>
-            ))}
+
+
+          <ChartCard title="Safety Profile (Aggregated)">
+            <SafetyScoreChart
+              data={selectedDevice ? aggregated.filter(r => r["Device ID"] === selectedDevice) : aggData}
+            />
+          </ChartCard>
+
+
+        </section>
+
+        {/* Right Section: Device Insights */}
+        <section className="space-y-6">
+          {/* Device Dropdown (always visible) */}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-800">Device Insights</h2>
+            <select
+              className="text-black border rounded px-2 py-1"
+              value={selectedDevice}
+              onChange={(e) => setSelectedDevice(e.target.value)}
+            >
+              <option value="">Select Device</option>
+              {[...new Set(aggregated.map((row) => row["Device ID"]))].map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
           </div>
 
-          <input
-            type="text"
-            placeholder="Search by device ID, type, status, location..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full sm:w-80 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-          />
-        </div>
+          {/* Charts for selected device */}
+          {selectedDevice && (
+            <>
 
-        <div className="flex-1 overflow-auto">
-          <DeviceGrid devices={filteredDevices} />
-        </div>
-      </div>
+              <ChartCard title={`Device Metrics - ${selectedDevice}`}>
+                <DeviceMetricsChart data={cleaned.filter((r) => r["Device ID"] === selectedDevice)} />
+              </ChartCard>
 
-      <SidebarRight anomalies={anomalies} />
+              <DeviceInsights
+                data={aggregated}
+                selectedDevice={selectedDevice}
+                setSelectedDevice={setSelectedDevice}
+              />
+              <ChartCard title="Safety Score">
+                <SafetyGauge data={aggregated.filter((r) => r["Device ID"] === selectedDevice)} />
+              </ChartCard>
+            </>
+          )}
+        </section>
+
+      </main>
     </div>
   );
-} 
+}
