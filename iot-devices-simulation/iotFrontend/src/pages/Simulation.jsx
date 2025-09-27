@@ -1,5 +1,6 @@
 // src/pages/Simulation.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import VoiceAssistant from "../components/VoiceAssistant"; // Import the voice assistant component
 
 export default function Simulation() {
   const [deviceId, setDeviceId] = useState("");
@@ -7,6 +8,7 @@ export default function Simulation() {
   const [action, setAction] = useState("exclude");
   const [parametersInput, setParametersInput] = useState("");
   const [response, setResponse] = useState("");
+  const [voiceEnabled, setVoiceEnabled] = useState(true); // State for voice control
 
   // Helper to get parameters array from comma-separated string
   const getParametersArray = (input) =>
@@ -46,6 +48,16 @@ export default function Simulation() {
 
     try {
       const parameters = getParametersArray(parametersInput);
+
+      // Announce the parameters using Voice Assistant
+      if (voiceEnabled) {
+        const paramsText = parameters.join(", ");
+        speak(`Simulating failure with the following parameters: ${paramsText}`);
+        setTimeout(() => {
+          speak(`Device ${deviceId} is not accessible. I repeat, device ${deviceId} is not accessible.`);
+        }, 3000);
+      }
+
       const res = await fetch("http://localhost:3000/api/device/simulate-failure", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -61,6 +73,14 @@ export default function Simulation() {
     } catch (error) {
       setResponse(JSON.stringify({ error: `Request failed: ${error.message}` }, null, 2));
     }
+  };
+
+  // Function to speak the response
+  const speak = (text) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    window.speechSynthesis.speak(utterance);
   };
 
   // Common Tailwind classes for inputs and buttons
@@ -191,6 +211,9 @@ export default function Simulation() {
           </pre>
         </div>
       </div>
+
+      {/* Voice Assistant Component */}
+      {voiceEnabled && <VoiceAssistant />}
     </div>
   );
 }
