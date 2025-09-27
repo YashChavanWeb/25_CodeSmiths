@@ -8,9 +8,9 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Monitoring />} />
         <Route path="/simulation" element={<Simulation/>} />
-        <Route path="/dashboard" element={<Dashboard/>} />
+        <Route path="/" element={<Dashboard/>} />
+        <Route path="/monitor" element={<Monitoring />} />
       </Routes>
     </Router>
   );

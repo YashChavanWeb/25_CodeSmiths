@@ -3,16 +3,15 @@ import DeviceGrid from "../components/DeviceGrid.jsx";
 import SidebarLeft from "../components/SidebarLeft.jsx";
 import SidebarRight from "../components/SidebarRight.jsx";
 
-
-
 export default function Monitoring() {
   const [devices, setDevices] = useState([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
 
   useEffect(() => {
-    const eventSource = new EventSource("http://localhost:3000/api/bot-sensor-stream");
-
+    const eventSource = new EventSource(
+      `${import.meta.env.VITE_API_BASE_URL}/api/bot-sensor-stream`
+    ); 
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -116,8 +115,8 @@ export default function Monitoring() {
               <button
                 key={cat}
                 onClick={() => setCategory(cat)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${category === cat
-                  ? "bg-indigo-600 text-white"
+                className={`px-4 py-2 rounded-full text-sm font-medium transition ${category === cat
+                  ? "bg-black text-white"
                   : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
                   }`}
               >
@@ -133,7 +132,7 @@ export default function Monitoring() {
             placeholder="Search by device ID, type, status, location..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full sm:w-80 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full sm:w-80 px-4 py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-black focus:outline-none"
           />
         </div>
 
@@ -142,7 +141,7 @@ export default function Monitoring() {
         </div>
       </div>
 
-      <SidebarRight anomalies={anomalies} />
+      {/* <SidebarRight anomalies={anomalies} /> */}
     </div>
   );
 } 
